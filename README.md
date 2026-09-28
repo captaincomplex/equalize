@@ -1,6 +1,8 @@
+![Equalize](image/banner.png)
+
 # Equalize
 
-![Equalize on a 64×64 panel](docs/preview-64x64.gif) ![Equalize on a 128×64 panel](docs/preview-128x64.gif)
+![Equalize on a 64×64 panel, Vapor colours](docs/preview-64x64.gif) ![Equalize on a 128×64 panel, Sunset colours](docs/preview-128x64.gif)
 
 A graphic equaliser for an RGB LED matrix on a Raspberry Pi. Play music on your
 Sonos from your iPhone, and the panel on the wall bounces along to it: bass on
@@ -61,8 +63,9 @@ Works from an iPhone, iPad, Mac or Apple TV, with any app. The Pi makes no sound
 - **Always on**: bars even in silence (a faint floor row).
 - **Off**.
 
-Plus: live **brightness**, **colours** (classic, rainbow, ice, sunset, and
-*album*, which takes the bar colours from the cover of the song playing),
+Plus: live **brightness**, **colours** (*vapor*, the logo's sunset with cyan
+peak caps and the default; classic, rainbow, ice, sunset; and *album*, which
+takes the bar colours from the cover of the song playing),
 **number of bars**, **sensitivity**, **peak caps**, a **screen timer**, **quiet
 hours** and a **sunrise/sunset dimmer**, all as in Spotipi Photo. A live
 dashboard shows a snapshot of the panel, the song, and the frame rate.
@@ -114,7 +117,17 @@ installer tells you how to switch.
 python3 tools/preview.py --size 128x64 --theme sunset     # writes preview.gif
 python3 tools/preview.py --wav song.wav                   # from a real recording
 python3 -m pytest                                         # the tests
+python3 image/make_logo.py                                # rebuild the logo files (needs cairosvg)
 ```
+
+## The logo
+
+A vaporwave sun setting over a neon grid, except the sun is made of equaliser
+bars. Each bar stops short of the circle, and its peak cap hangs where the
+circle's edge would be, so the caps trace the sun's outline. The wordmark is
+set in dot-matrix, the way the panel draws. The palette (night purple, a sun
+running pale yellow to peach, pink and purple, and a cyan grid) is shared by
+the icon, the web panel and the *vapor* LED theme.
 These run the real analysis and drawing code on any computer with numpy and Pillow.
 
 ## Files
@@ -139,6 +152,7 @@ equalize/
 │   ├── generateToken.py
 │   └── client/               # web panel
 ├── tools/preview.py          # animated preview on any computer
+├── image/make_logo.py        # builds the logo, icons, favicon and banner from one geometry
 ├── tests/
 ├── GLOSSARY.md               # every technical term, in plain English
 └── TODO.md

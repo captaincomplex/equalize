@@ -2,201 +2,402 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12042e">
+<meta name="apple-mobile-web-app-title" content="Equalize">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Equalize</title>
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32">
+<link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
 <style>
-  :root { --bg:#0e0f12; --card:#181a20; --line:#2a2d36; --text:#e8e9ec; --muted:#9097a3;
-          --accent:#3ddc84; --warn:#ffb020; --bad:#ff5a4f; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text);
-         font:15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  main { max-width:560px; margin:0 auto; padding:16px; }
-  h1 { font-size:22px; margin:4px 0 16px; letter-spacing:.02em; }
-  h2 { font-size:15px; margin:0 0 10px; color:var(--muted); font-weight:600;
-       text-transform:uppercase; letter-spacing:.06em; }
-  section { background:var(--card); border:1px solid var(--line); border-radius:12px;
-            padding:14px; margin-bottom:14px; }
-  .now { display:flex; gap:14px; align-items:flex-start; }
-  .now img { width:128px; image-rendering:pixelated; background:#000; border-radius:6px;
-             border:1px solid var(--line); flex:none; }
-  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px;
-         background:var(--bad); vertical-align:middle; }
-  .dot.ok { background:var(--accent); }
-  .stats { display:grid; grid-template-columns:auto 1fr; gap:2px 10px; font-size:13px;
-           color:var(--muted); margin-top:6px; }
-  .stats b { color:var(--text); font-weight:500; }
-  .modes { display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; }
-  button, .btn { font:inherit; color:var(--text); background:#23262e; border:1px solid var(--line);
-                 border-radius:9px; padding:10px; cursor:pointer; }
-  button.on { background:var(--accent); color:#06140b; border-color:var(--accent); font-weight:600; }
-  button.save { background:#2c313b; }
-  label { display:block; margin:8px 0 4px; }
-  input[type=range] { width:100%; }
-  input[type=number], input[type=time], select { font:inherit; color:var(--text); background:#23262e;
-         border:1px solid var(--line); border-radius:7px; padding:6px 8px; }
-  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .hint { color:var(--muted); font-size:13px; margin:8px 0 0; }
-  .warn { color:var(--warn); }
+  /* Palette: the logo's. Night sky, a sun that runs peach to pink to purple,
+     and a neon-cyan grid. */
+  :root {
+    --sky-0: #0b0320; --sky-1: #12042e; --sky-2: #2a0e52;
+    --card: rgba(34, 12, 66, 0.72); --card-edge: rgba(255, 95, 200, 0.22);
+    --well: rgba(10, 3, 30, 0.6); --line: rgba(185, 150, 255, 0.18);
+    --text: #f6efff; --muted: #c2b2e6; --faint: #8f7cb8;
+    --pink: #ff5fc8; --purple: #a94bff; --cyan: #2de2f5; --peach: #ff9d7a; --sun: #fff6a0;
+    --good: #2de2f5; --warn: #ffc46b; --bad: #ff6b8b;
+    --sunset: linear-gradient(90deg, var(--pink), var(--purple) 55%, var(--cyan));
+    --radius: 18px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--sky-0); }
+  body {
+    margin: 0; min-height: 100vh; color: var(--text);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    background:
+      radial-gradient(120% 60% at 50% 0%, #3b1066 0%, transparent 60%),
+      linear-gradient(180deg, var(--sky-1), var(--sky-0) 70%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* The neon floor, fixed behind everything, fading up into the sky. */
+  body::before {
+    content: ""; position: fixed; left: -50%; right: -50%; bottom: -10vh; height: 55vh;
+    z-index: -1; pointer-events: none;
+    background:
+      linear-gradient(transparent 0 94%, rgba(45, 226, 245, .5) 94% 100%) 0 0 / 100% 48px,
+      linear-gradient(90deg, transparent 0 97%, rgba(45, 226, 245, .5) 97% 100%) 0 0 / 60px 100%;
+    transform: perspective(300px) rotateX(62deg); transform-origin: 50% 100%;
+    -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 85%);
+            mask-image: linear-gradient(to top, #000 10%, transparent 85%);
+    opacity: .5;
+  }
+  main { max-width: 580px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 64px; }
+
+  header { display: flex; align-items: center; gap: 14px; margin: 8px 2px 20px; }
+  header .icon { width: 52px; height: 52px; border-radius: 13px; flex: none;
+                 box-shadow: 0 6px 24px rgba(255, 95, 200, .35); }
+  header .wordmark { height: 26px; width: auto; display: block; }
+  header .tag { margin: 6px 0 0; font-size: 11px; letter-spacing: .32em; color: var(--muted); }
+
+  section {
+    background: var(--card); border: 1px solid var(--card-edge); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 16px;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 10px 40px rgba(5, 0, 20, .45);
+  }
+  h2 { margin: 0 0 14px; font-size: 12px; font-weight: 700; letter-spacing: .22em;
+       text-transform: uppercase; color: var(--cyan); }
+  h3 { margin: 22px 0 10px; font-size: 15px; font-weight: 600; }
+  .hint { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+  .hint b { color: var(--text); font-weight: 600; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+
+  /* --- Now on the panel --- */
+  .panel {
+    position: relative; margin: 0 auto 14px; width: 100%;
+    aspect-ratio: var(--panel-aspect, 1 / 1); max-height: 60vh;
+    background: #000; border-radius: 12px; overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .08);
+    box-shadow: 0 0 0 6px #140629, 0 0 44px rgba(169, 75, 255, .35);
+  }
+  .panel img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  /* A dot mask so the preview looks like LEDs rather than square pixels. */
+  .panel::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle, transparent 52%, #000 64%) 0 0 /
+                calc(100% / var(--panel-w, 64)) calc(100% / var(--panel-h, 64));
+  }
+  .headline { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad);
+         box-shadow: 0 0 10px var(--bad); flex: none; }
+  .dot.ok { background: var(--good); box-shadow: 0 0 10px var(--good); }
+  .song { margin: 4px 0 0 20px; color: var(--muted); }
+  .song:empty { display: none; }
+  .song b { color: var(--pink); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding: 0; list-style: none; }
+  .chips li { background: var(--well); border: 1px solid var(--line); border-radius: 999px;
+              padding: 4px 11px; font-size: 13px; color: var(--muted); }
+  .chips li b { color: var(--text); font-weight: 600; }
+  .problem { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 14px;
+             background: rgba(255, 196, 107, .1); border: 1px solid rgba(255, 196, 107, .35);
+             color: var(--warn); }
+  .problem:empty { display: none; }
+
+  /* --- Segmented controls (modes, bar count) --- */
+  .seg { display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); gap: 4px; padding: 4px;
+         background: var(--well); border: 1px solid var(--line); border-radius: 14px; }
+  .seg label { position: relative; }
+  .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .seg span { display: block; text-align: center; padding: 10px 4px; border-radius: 10px;
+              font-size: 14px; font-weight: 600; color: var(--muted); transition: background .15s, color .15s; }
+  .seg input:checked + span { background: var(--sunset); color: #1a0433;
+                              box-shadow: 0 4px 18px rgba(255, 95, 200, .4); }
+  .seg input:focus-visible + span { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  @media (max-width: 420px) { .seg.modes { --n: 2 !important; } }
+
+  /* --- Sliders --- */
+  .slider { display: flex; align-items: center; gap: 14px; }
+  .slider output { min-width: 2.5ch; text-align: right; font-variant-numeric: tabular-nums;
+                   font-weight: 700; color: var(--sun); }
+  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 28px;
+                      background: transparent; margin: 0; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 8px; border-radius: 99px;
+    background: linear-gradient(90deg, var(--pink), var(--purple) var(--fill, 50%), rgba(255,255,255,.12) var(--fill, 50%)); }
+  input[type=range]::-moz-range-track { height: 8px; border-radius: 99px; background: rgba(255,255,255,.12); }
+  input[type=range]::-moz-range-progress { height: 8px; border-radius: 99px; background: linear-gradient(90deg, var(--pink), var(--purple)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -8px;
+    border-radius: 50%; background: var(--sun); border: 3px solid #1a0433; box-shadow: 0 0 0 2px var(--pink), 0 0 14px var(--pink); }
+  input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--sun);
+    border: 3px solid #1a0433; box-shadow: 0 0 0 2px var(--pink), 0 0 14px var(--pink); }
+  input[type=range]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; border-radius: 99px; }
+
+  /* --- Colour swatches --- */
+  .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .swatch { position: relative; cursor: pointer; }
+  .swatch input { position: absolute; opacity: 0; }
+  .swatch .chip { display: block; height: 56px; border-radius: 12px; border: 2px solid transparent;
+                  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+  .swatch .name { display: block; margin-top: 6px; font-size: 13px; text-align: center; color: var(--muted); }
+  .swatch input:checked ~ .chip { border-color: var(--text); box-shadow: 0 0 0 3px rgba(45,226,245,.55), 0 0 22px rgba(255,95,200,.45); }
+  .swatch input:checked ~ .name { color: var(--text); font-weight: 600; }
+  .swatch input:focus-visible ~ .chip { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+  /* --- Switches --- */
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+            padding: 6px 0; cursor: pointer; }
+  .switch input { -webkit-appearance: none; appearance: none; flex: none; margin: 0; cursor: pointer;
+                  width: 50px; height: 30px; border-radius: 99px; position: relative;
+                  background: rgba(255,255,255,.14); border: 1px solid var(--line); transition: background .2s; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+                         border-radius: 50%; background: #fff; transition: transform .2s; }
+  .switch input:checked { background: var(--sunset); border-color: transparent; }
+  .switch input:checked::after { transform: translateX(20px); }
+  .switch input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+  /* --- Small inputs --- */
+  .inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; color: var(--muted); }
+  input[type=number], input[type=time] {
+    font: inherit; color: var(--text); background: var(--well); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 10px; min-width: 0; }
+  input[type=number] { width: 6.5em; }
+  input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .muted-when-off:has(input[type=checkbox]:not(:checked)) .inline { opacity: .45; }
+
+  /* --- Toast --- */
+  .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 5;
+           transform: translate(-50%, 24px); opacity: 0; visibility: hidden;
+           padding: 10px 18px; border-radius: 999px;
+           background: #1a0433; border: 1px solid var(--cyan); color: var(--text); font-size: 14px;
+           box-shadow: 0 0 24px rgba(45,226,245,.35);
+           transition: transform .25s, opacity .25s, visibility .25s; }
+  .toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
+  .toast.err { border-color: var(--bad); box-shadow: 0 0 24px rgba(255,107,139,.35); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  noscript button { margin-top: 12px; }
+  button { font: inherit; color: #1a0433; background: var(--sunset); border: 0; border-radius: 10px;
+           padding: 9px 16px; font-weight: 700; cursor: pointer; }
 </style>
 </head>
 <body>
 <main>
-<h1>Equalize</h1>
 
-<section>
-  <h2>Now on the panel</h2>
-  <div class="now">
-    <img id="preview" src="/preview.png" alt="What the panel is showing">
-    <div>
-      <div><span id="alive" class="dot"></span><span id="headline">loading…</span></div>
-      <div id="song" class="hint"></div>
-      <div class="stats">
-        <span>Sound</span><b id="st-sound">–</b>
-        <span>Panel</span><b id="st-panel">–</b>
-        <span>Frame rate</span><b id="st-fps">–</b>
-        <span>Brightness</span><b id="st-bright">–</b>
-        <span>Timer left</span><b id="st-timer">–</b>
-        <span>CPU temp</span><b id="st-temp">–</b>
-        <span>Uptime</span><b id="st-up">–</b>
-      </div>
-      <div id="problem" class="hint warn"></div>
+<header>
+  <img class="icon" src="{{ url_for('static', filename='icon-192.png') }}" alt="">
+  <div>
+    <h1 style="margin:0"><img class="wordmark" src="{{ url_for('static', filename='wordmark.svg') }}" alt="Equalize"></h1>
+    <p class="tag">YOUR MUSIC, ON THE WALL</p>
+  </div>
+</header>
+
+<section aria-labelledby="now-h">
+  <h2 id="now-h">Now on the panel</h2>
+  <div class="panel" id="panel"><img id="preview" src="/preview.png" alt="Live snapshot of the LED panel"></div>
+  <div class="headline"><span id="alive" class="dot" aria-hidden="true"></span><span id="headline">Connecting…</span></div>
+  <p class="song" id="song"></p>
+  <ul class="chips" aria-label="Status">
+    <li>Sound <b id="st-sound">–</b></li>
+    <li>Panel <b id="st-panel">–</b></li>
+    <li><b id="st-fps">–</b> fps</li>
+    <li>Brightness <b id="st-bright">–</b></li>
+    <li>Timer <b id="st-timer">–</b></li>
+    <li><b id="st-temp">–</b></li>
+    <li>Up <b id="st-up">–</b></li>
+  </ul>
+  <p class="problem" id="problem" role="status"></p>
+</section>
+
+<section aria-labelledby="disp-h">
+  <h2 id="disp-h">Display</h2>
+  <form method="post" action="/mode" data-autosave>
+    <div class="seg modes" style="--n:4" role="radiogroup" aria-label="Display mode">
+      {% for value, label in [("on","Auto"),("spotify","Spotify"),("always","Always"),("off","Off")] %}
+      <label><input type="radio" name="mode" value="{{ value }}" {{ 'checked' if s.mode == value }}><span>{{ label }}</span></label>
+      {% endfor %}
     </div>
-  </div>
-</section>
-
-<section>
-  <h2>Display</h2>
-  <div class="modes">
-    {% for value, label in [("on","On (auto)"),("spotify","Spotify only"),("always","Always on"),("off","Off")] %}
-    <form method="post" action="/mode"><input type="hidden" name="mode" value="{{ value }}">
-      <button style="width:100%" class="{{ 'on' if s.mode == value }}">{{ label }}</button></form>
-    {% endfor %}
-  </div>
-  <p class="hint"><b>On (auto)</b>: bars whenever music is arriving over AirPlay, from any app.
-    <b>Spotify only</b>: the same, but only while Spotify says your account is playing.
-    <b>Always on</b>: bars even in silence.</p>
-</section>
-
-<section>
-  <h2>Brightness</h2>
-  <div class="row">
-    <input id="brightness" type="range" min="1" max="100" value="{{ s.brightness }}" style="flex:1">
-    <b id="bval">{{ s.brightness }}</b>
-  </div>
-</section>
-
-<section>
-  <h2>Look</h2>
-  <form method="post" action="/look">
-    <label>Colours
-      <select name="theme">
-        {% for t in themes %}<option value="{{ t }}" {{ 'selected' if s.theme == t }}>{{ t|capitalize }}{{ ' (from the album cover)' if t == 'album' }}</option>{% endfor %}
-      </select></label>
-    <label>Number of bars
-      <select name="bars">
-        {% for b in bar_choices %}<option value="{{ b }}" {{ 'selected' if s.bars == b }}>{{ 'Automatic' if b == 0 else b }}</option>{% endfor %}
-      </select></label>
-    <label>Sensitivity <span class="hint">(higher = taller, busier bars)</span>
-      <input type="range" name="sensitivity" min="1" max="100" value="{{ s.sensitivity }}"></label>
-    <label><input type="checkbox" name="peaks" {{ 'checked' if s.peaks }}> Falling peak caps</label>
-    <button class="save">Save look</button>
+    <noscript><button>Save</button></noscript>
   </form>
-</section>
+  <p class="hint" id="mode-hint"></p>
 
-<section>
-  <h2>Sound source</h2>
-  <form method="post" action="/source" class="row">
-    <select name="audio_source">
-      <option value="airplay" {{ 'selected' if s.audio_source == 'airplay' }}>AirPlay</option>
-      <option value="demo" {{ 'selected' if s.audio_source == 'demo' }}>Demo pattern</option>
-    </select>
-    <button class="save">Save</button>
-  </form>
-  <p class="hint">To play: on your iPhone, open the AirPlay picker (Control Centre, or the
-    speaker icon in Spotify), and tick <b>both</b> your Sonos speaker <b>and Equalize</b>.
-    The Pi makes no sound; it only watches. <b>Demo pattern</b> is for testing the panel.</p>
-</section>
-
-<section>
-  <h2>Screen timer</h2>
-  <form method="post" action="/timer">
-    <label><input type="checkbox" name="timer_enabled" {{ 'checked' if s.timer_enabled }}>
-      Turn the screen off after</label>
-    <div class="row"><input type="number" name="timer_minutes" min="1" max="1440" value="{{ s.timer_minutes }}"> minutes
-      <button class="save">Save</button></div>
-    <p class="hint">Counts down from when you save. Tapping a Display button resets it.</p>
-  </form>
-</section>
-
-<section>
-  <h2>Quiet hours</h2>
-  <form method="post" action="/schedule">
-    <label><input type="checkbox" name="schedule_enabled" {{ 'checked' if s.schedule_enabled }}>
-      Off every day between</label>
-    <div class="row"><input type="time" name="schedule_off" value="{{ s.schedule_off }}"> and
-      <input type="time" name="schedule_on" value="{{ s.schedule_on }}">
-      <button class="save">Save</button></div>
-  </form>
-</section>
-
-<section>
-  <h2>Sunrise / sunset dimmer</h2>
-  <form method="post" action="/dimmer">
-    <label><input type="checkbox" name="dimmer_enabled" {{ 'checked' if s.dimmer_enabled }}>
-      Dim the screen between sunset and sunrise</label>
-    <label>Night brightness <input type="number" name="dim_brightness" min="1" max="100" value="{{ s.dim_brightness }}"> of 100</label>
-    <div class="row">
-      <label>Latitude <input type="number" step="0.0001" name="latitude" value="{{ s.latitude }}"></label>
-      <label>Longitude <input type="number" step="0.0001" name="longitude" value="{{ s.longitude }}"></label>
+  <h3 id="bright-l">Brightness</h3>
+  <form method="post" action="/brightness" data-autosave data-live>
+    <div class="slider">
+      <input type="range" name="brightness" min="1" max="100" value="{{ s.brightness }}" aria-labelledby="bright-l">
+      <output>{{ s.brightness }}</output>
     </div>
-    <button class="save">Save</button>
   </form>
 </section>
+
+<section aria-labelledby="look-h">
+  <h2 id="look-h">Look</h2>
+  <form method="post" action="/look" data-autosave>
+    <div class="swatches" role="radiogroup" aria-label="Colours">
+      {% for value, label, css in themes %}
+      <label class="swatch">
+        <input type="radio" name="theme" value="{{ value }}" {{ 'checked' if s.theme == value }}>
+        <span class="chip" style="background: {{ css }}"></span>
+        <span class="name">{{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <p class="hint"><b>Album cover</b> takes the colours from the sleeve of the song playing (needs the Spotify login).</p>
+
+    <h3 id="bars-l">Bars</h3>
+    <div class="seg" style="--n:{{ bar_choices|length }}" role="radiogroup" aria-labelledby="bars-l">
+      {% for b in bar_choices %}
+      <label><input type="radio" name="bars" value="{{ b }}" {{ 'checked' if s.bars == b }}><span>{{ 'Auto' if b == 0 else b }}</span></label>
+      {% endfor %}
+    </div>
+
+    <h3 id="sens-l">Sensitivity</h3>
+    <div class="slider">
+      <input type="range" name="sensitivity" min="1" max="100" value="{{ s.sensitivity }}" aria-labelledby="sens-l">
+      <output>{{ s.sensitivity }}</output>
+    </div>
+    <p class="hint">Higher makes the bars taller and busier.</p>
+
+    <hr>
+    <label class="switch"><span>Falling peak caps</span>
+      <input type="checkbox" role="switch" name="peaks" {{ 'checked' if s.peaks }}></label>
+    <noscript><button>Save</button></noscript>
+  </form>
+</section>
+
+<section aria-labelledby="sound-h">
+  <h2 id="sound-h">Sound</h2>
+  <form method="post" action="/source" data-autosave>
+    <div class="seg" style="--n:2" role="radiogroup" aria-label="Sound source">
+      <label><input type="radio" name="audio_source" value="airplay" {{ 'checked' if s.audio_source == 'airplay' }}><span>AirPlay</span></label>
+      <label><input type="radio" name="audio_source" value="demo" {{ 'checked' if s.audio_source == 'demo' }}><span>Demo</span></label>
+    </div>
+    <noscript><button>Save</button></noscript>
+  </form>
+  <p class="hint">On your iPhone, open the AirPlay picker (Control Centre, or the speaker
+    icon in Spotify) and tick <b>your Sonos</b> and <b>Equalize</b>. The Pi makes no sound;
+    it only watches. <b>Demo</b> plays a built-in pattern for testing the panel.</p>
+</section>
+
+<section aria-labelledby="sched-h">
+  <h2 id="sched-h">Schedule</h2>
+
+  <form method="post" action="/timer" data-autosave class="muted-when-off">
+    <label class="switch"><span>Screen timer</span>
+      <input type="checkbox" role="switch" name="timer_enabled" {{ 'checked' if s.timer_enabled }}></label>
+    <div class="inline">Off after <input type="number" name="timer_minutes" min="1" max="1440"
+         value="{{ s.timer_minutes }}" aria-label="Minutes"> minutes</div>
+    <p class="hint">Counts down from when you save. Choosing a display mode restarts it.</p>
+    <noscript><button>Save</button></noscript>
+  </form>
+  <hr>
+
+  <form method="post" action="/schedule" data-autosave class="muted-when-off">
+    <label class="switch"><span>Quiet hours</span>
+      <input type="checkbox" role="switch" name="schedule_enabled" {{ 'checked' if s.schedule_enabled }}></label>
+    <div class="inline">Off from <input type="time" name="schedule_off" value="{{ s.schedule_off }}" aria-label="Off from">
+      to <input type="time" name="schedule_on" value="{{ s.schedule_on }}" aria-label="Back on at"></div>
+    <noscript><button>Save</button></noscript>
+  </form>
+  <hr>
+
+  <form method="post" action="/dimmer" data-autosave class="muted-when-off">
+    <label class="switch"><span>Dim after sunset</span>
+      <input type="checkbox" role="switch" name="dimmer_enabled" {{ 'checked' if s.dimmer_enabled }}></label>
+    <div class="inline">Night brightness <input type="number" name="dim_brightness" min="1" max="100"
+         value="{{ s.dim_brightness }}" aria-label="Night brightness"> of 100</div>
+    <div class="inline">Lat <input type="number" step="0.0001" name="latitude" value="{{ s.latitude }}" aria-label="Latitude">
+      Lon <input type="number" step="0.0001" name="longitude" value="{{ s.longitude }}" aria-label="Longitude"></div>
+    <p class="hint">Sunrise and sunset are worked out on the Pi from these coordinates.</p>
+    <noscript><button>Save</button></noscript>
+  </form>
+</section>
+
 </main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 const $ = id => document.getElementById(id);
+const MODE_HINTS = {
+  on: "<b>Auto</b>: bars whenever music is arriving over AirPlay, from any app; dark otherwise.",
+  spotify: "<b>Spotify</b>: bars only while Spotify says your account is playing.",
+  always: "<b>Always</b>: bars all the time, with a faint floor row in silence.",
+  off: "<b>Off</b>: the panel stays dark."
+};
+
+// ---- settings save themselves ----
+let toastTimer;
+function toast(msg, err) {
+  const t = $("toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = "toast" + (err ? " err" : ""), 1600);
+}
+async function save(form) {
+  try {
+    const r = await fetch(form.action, { method: "POST", body: new FormData(form),
+      headers: { "X-Requested-With": "XMLHttpRequest" } });
+    if (!r.ok) throw 0;
+    toast("Saved");
+    refresh();
+  } catch (e) { toast("Couldn't reach the Pi", true); }
+}
+function paintRange(r) {
+  r.style.setProperty("--fill", ((r.value - r.min) / (r.max - r.min) * 100) + "%");
+  const out = r.parentElement.querySelector("output"); if (out) out.textContent = r.value;
+}
+document.querySelectorAll("form[data-autosave]").forEach(form => {
+  let t;
+  form.addEventListener("change", () => { clearTimeout(t); save(form); });
+  form.addEventListener("submit", e => { e.preventDefault(); save(form); });
+  form.querySelectorAll("input[type=range]").forEach(r => {
+    paintRange(r);
+    r.addEventListener("input", () => {
+      paintRange(r);
+      if (form.hasAttribute("data-live")) { clearTimeout(t); t = setTimeout(() => save(form), 150); }
+    });
+  });
+});
+function showModeHint() {
+  const m = document.querySelector("input[name=mode]:checked");
+  $("mode-hint").innerHTML = MODE_HINTS[m ? m.value : "on"];
+}
+document.querySelectorAll("input[name=mode]").forEach(i => i.addEventListener("change", showModeHint));
+showModeHint();
+
+// ---- live dashboard ----
 function dur(s) {
   if (s == null) return "–";
-  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
-  return h ? `${h}h ${m}m` : `${m}m ${s % 60}s`;
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m ${s % 60}s`;
 }
 async function refresh() {
   try {
-    const d = await (await fetch("/status", {cache: "no-store"})).json();
+    const d = await (await fetch("/status", { cache: "no-store" })).json();
     const st = d.status || {};
     $("alive").className = "dot" + (d.alive ? " ok" : "");
     $("headline").textContent = !d.alive ? "Display program not running"
-      : st.effective === "bars" ? "Showing the equaliser" : "Dark";
-    $("song").textContent = st.song ? `${st.song} — ${st.artist || ""}` : "";
-    $("st-sound").textContent = st.source === "demo" ? "demo pattern"
-      : st.has_sound ? "music arriving" : "silent";
-    $("st-panel").textContent = st.panel ? `${st.panel}, ${st.bars || "–"} bars` : "–";
-    $("st-fps").textContent = st.effective === "bars" && st.fps ? `${st.fps} fps` : "–";
+      : st.effective === "bars" ? "Playing" : "Waiting for music";
+    $("song").innerHTML = st.song
+      ? `<b>${esc(st.song)}</b> · ${esc(st.artist || "")}` : "";
+    $("st-sound").textContent = st.source === "demo" ? "demo" : st.has_sound ? "arriving" : "silent";
+    $("st-panel").textContent = st.panel ? `${st.panel} · ${st.bars || "–"} bars` : "–";
+    $("st-fps").textContent = st.effective === "bars" && st.fps ? st.fps : "–";
     $("st-bright").textContent = st.brightness ?? "–";
     $("st-timer").textContent = d.timer_remaining_s == null ? "off" : dur(d.timer_remaining_s);
-    $("st-temp").textContent = d.pi_temp_c == null ? "–" : `${d.pi_temp_c} °C`;
+    $("st-temp").textContent = d.pi_temp_c == null ? "– °C" : `${d.pi_temp_c} °C`;
     $("st-up").textContent = dur(d.uptime_s);
+    if (st.panel) {
+      const [w, h] = st.panel.split("x").map(Number), p = $("panel").style;
+      p.setProperty("--panel-w", w); p.setProperty("--panel-h", h); p.setProperty("--panel-aspect", `${w} / ${h}`);
+    }
     const probs = [];
     if (st.source_error) probs.push("Sound: " + st.source_error);
     if (d.state.mode === "spotify" && st.spotify_enabled === false)
-      probs.push("Spotify only needs a Spotify login — run generate-token.sh and re-run the installer.");
+      probs.push("Spotify mode needs the Spotify login: run generate-token.sh, then the installer again.");
     $("problem").textContent = probs.join(" ");
   } catch (e) {
     $("alive").className = "dot"; $("headline").textContent = "Can't reach the Pi";
   }
   $("preview").src = "/preview.png?" + Date.now();
 }
+function esc(s) { return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
 refresh(); setInterval(refresh, 1000);
-
-let t;
-$("brightness").addEventListener("input", e => {
-  $("bval").textContent = e.target.value;
-  clearTimeout(t);
-  t = setTimeout(() => fetch("/brightness", {method: "POST",
-    headers: {"X-Requested-With": "XMLHttpRequest", "Content-Type": "application/x-www-form-urlencoded"},
-    body: "brightness=" + e.target.value}), 120);
-});
 </script>
 </body>
 </html>

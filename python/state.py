@@ -33,7 +33,7 @@ DEFAULT_STATE = {
     "brightness": 60,               # 1-100, the daytime level
 
     # Look
-    "theme": "classic",             # see render.THEMES
+    "theme": "vapor",               # see render.THEMES
     "bars": 0,                      # 0 = automatic for the panel width
     "peaks": True,                  # the little falling caps above the bars
     "sensitivity": 50,              # 1-100; higher = taller, busier bars

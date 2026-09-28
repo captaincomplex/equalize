@@ -5,7 +5,7 @@ preview.py -- see what the panel will look like, on any computer.
 Runs the real analysis and drawing code on the built-in demo pattern (or a
 WAV file) and writes an animated GIF, enlarged so each LED is visible.
 
-    python3 tools/preview.py                          # 64x64, classic
+    python3 tools/preview.py                          # 64x64, vapor
     python3 tools/preview.py --size 128x64 --theme sunset
     python3 tools/preview.py --wav song.wav --seconds 8
 
@@ -22,7 +22,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 from audio_source import DemoSource  # noqa: E402
-from render import THEMES, auto_bars, colour_field, render  # noqa: E402
+from render import THEMES, auto_bars, colour_field, peak_colour_for, render  # noqa: E402
 from spectrum import Analyzer, BarSmoother  # noqa: E402
 
 FFT = 2048
@@ -59,7 +59,7 @@ def as_leds(img, scale):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--size", default="64x64", help="WIDTHxHEIGHT: 64x32, 64x64 or 128x64")
-    ap.add_argument("--theme", default="classic", choices=THEMES)
+    ap.add_argument("--theme", default="vapor", choices=THEMES)
     ap.add_argument("--bars", type=int, default=0)
     ap.add_argument("--seconds", type=float, default=4.0)
     ap.add_argument("--fps", type=int, default=25)
@@ -90,7 +90,8 @@ def main():
     for i in range(int(a.seconds * a.fps)):
         t = 1.0 + i * dt
         levels, peaks = smoother.update(analyzer.process(read(t), 50, dt), dt)
-        frame = render(levels, peaks, width, height, field=field)
+        frame = render(levels, peaks, width, height, field=field,
+                       peak_colour=peak_colour_for(a.theme))
         frames.append(as_leds(frame, a.scale))
         if a.still and abs(t - float(a.still)) < dt / 2:
             frames[-1].save(os.path.splitext(a.out)[0] + ".png")

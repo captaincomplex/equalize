@@ -18,7 +18,7 @@ sys.dont_write_bytecode = True      # runs as root; keep __pycache__ out
 from flask import Flask, Response, jsonify, redirect, render_template, request, send_file, url_for
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from render import THEMES  # noqa: E402
+from render import THEMES, theme_css  # noqa: E402
 from state import PREVIEW_PATH, read_state, read_status, reset_timer, write_state  # noqa: E402
 
 app = Flask(__name__)
@@ -26,6 +26,8 @@ app = Flask(__name__)
 VALID_MODES = {"on", "spotify", "always", "off"}
 VALID_SOURCES = {"airplay", "demo"}
 BAR_CHOICES = [0, 8, 16, 32, 64]
+THEME_LABELS = {"vapor": "Vapor", "classic": "Classic", "rainbow": "Rainbow",
+                "ice": "Ice", "sunset": "Sunset", "album": "Album cover"}
 
 
 def _int(name, default, lo, hi):
@@ -74,8 +76,9 @@ def done():
 
 @app.route("/")
 def index():
+    themes = [(t, THEME_LABELS.get(t, t.title()), theme_css(t)) for t in THEMES]
     return render_template("index.html", s=read_state(), dash=dashboard(),
-                           themes=THEMES, bar_choices=BAR_CHOICES)
+                           themes=themes, bar_choices=BAR_CHOICES)
 
 
 @app.route("/preview.png")
@@ -111,8 +114,8 @@ def set_brightness():
 @app.route("/look", methods=["POST"])
 def set_look():
     state = read_state()
-    theme = request.form.get("theme", "classic")
-    state["theme"] = theme if theme in THEMES else "classic"
+    theme = request.form.get("theme", "vapor")
+    state["theme"] = theme if theme in THEMES else "vapor"
     bars = _int("bars", 0, 0, 128)
     state["bars"] = bars if bars in BAR_CHOICES else 0
     state["peaks"] = request.form.get("peaks") == "on"

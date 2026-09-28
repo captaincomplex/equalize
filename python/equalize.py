@@ -37,7 +37,7 @@ from PIL import Image
 
 from audio_source import AirPlaySource, DemoSource, SoundDetector
 from display_logic import compute_effective, effective_brightness
-from render import THEMES, album_palette, auto_bars, colour_field, render
+from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for, render
 from spectrum import Analyzer, BarSmoother
 from state import PREVIEW_PATH, read_state, write_status
 
@@ -144,6 +144,7 @@ def main():
 
     analyzer = smoother = field = None
     look_key = None
+    shown = "vapor"
     brightness = None
     effective = "off"
     has_sound = False
@@ -205,8 +206,8 @@ def main():
                     smoother = BarSmoother(n_bars)
                     look_key = None
 
-                theme = state.get("theme", "classic")
-                theme = theme if theme in THEMES else "classic"
+                theme = state.get("theme", "vapor")
+                theme = theme if theme in THEMES else "vapor"
                 new_look = (theme, n_bars, id(spotify.art) if theme == "album" else None)
                 if new_look != look_key:
                     palette = album_palette(spotify.art, n_bars) if theme == "album" else None
@@ -219,7 +220,8 @@ def main():
                 target = analyzer.process(samples, state.get("sensitivity", 50), dt)
                 levels, peaks = smoother.update(target, dt)
                 img = render(levels, peaks, width, height,
-                             show_peaks=bool(state.get("peaks", True)), field=field)
+                             show_peaks=bool(state.get("peaks", True)), field=field,
+                             peak_colour=peak_colour_for(shown))
                 canvas.SetImage(img)
                 canvas = matrix.SwapOnVSync(canvas)
 

@@ -59,6 +59,11 @@ point, then drop. Borrowed from hi-fi graphic equalisers.
 software (shairport-sync 5.5.2) rather than "whatever's newest today", so every
 install gets the same, tested thing.
 
+**Vaporwave.** A 2010s visual style borrowing from 1980s computer graphics:
+a striped setting sun, a neon grid floor running to the horizon, and a palette
+of pink, purple and cyan. Equalize's logo, web panel and default *vapor* LED
+colours use it.
+
 **Sample rate.** How many times per second sound is measured when it's digital.
 Equalize uses 48,000.
 

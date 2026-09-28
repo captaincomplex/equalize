@@ -10,14 +10,19 @@ import colorsys
 import numpy as np
 from PIL import Image
 
-THEMES = ["classic", "rainbow", "ice", "sunset", "album"]
+THEMES = ["vapor", "classic", "rainbow", "ice", "sunset", "album"]
 
 # Colour stops from the bottom of the panel (0.0) to the top (1.0).
 _GRADIENTS = {
+    # the logo's sun: purple at the horizon, through pink and peach, to pale yellow
+    "vapor":   [(0.0, (169, 75, 255)), (0.35, (255, 95, 200)), (0.7, (255, 157, 122)), (1.0, (255, 246, 160))],
     "classic": [(0.0, (0, 200, 40)), (0.55, (170, 220, 0)), (0.78, (255, 170, 0)), (1.0, (255, 20, 0))],
     "ice":     [(0.0, (0, 30, 160)), (0.5, (0, 150, 255)), (0.85, (120, 230, 255)), (1.0, (255, 255, 255))],
     "sunset":  [(0.0, (90, 0, 140)), (0.45, (230, 30, 90)), (0.8, (255, 130, 0)), (1.0, (255, 230, 60))],
 }
+# Peak caps are normally a paler version of the bar's top colour; some themes
+# use a contrasting accent instead (vapor: the logo's neon-grid cyan).
+_PEAK_COLOURS = {"vapor": (45, 226, 245)}
 IDLE_FLOOR = 0.12        # the always-lit bottom row, as a fraction of full colour
 
 
@@ -84,13 +89,27 @@ def colour_field(theme, n_bars, height, palette=None):
     return np.repeat(col[:, None, :], n_bars, axis=1)
 
 
+def theme_css(theme):
+    """A CSS gradient showing a theme, for the web panel's colour picker."""
+    if theme == "rainbow":
+        return "linear-gradient(90deg, %s)" % ", ".join(
+            "hsl(%d 100%% 55%%)" % h for h in (0, 60, 120, 180, 240, 300))
+    if theme == "album":
+        return "linear-gradient(135deg, #ff5fc8, #ffb35c 35%, #2de2f5 70%, #a94bff)"
+    stops = _GRADIENTS.get(theme, _GRADIENTS["classic"])
+    return "linear-gradient(0deg, %s)" % ", ".join(
+        "rgb(%d %d %d) %d%%" % (c[0], c[1], c[2], p * 100) for p, c in stops)
+
+
 def render(levels, peaks, width, height, theme="classic", palette=None,
-           show_peaks=True, field=None):
+           show_peaks=True, field=None, peak_colour=None):
     """Draw one frame. levels/peaks are 0..1 per bar. Returns a PIL RGB image.
 
     Pass a precomputed `field` (from colour_field) to skip rebuilding the
-    colours every frame.
+    colours every frame. peak_colour overrides the theme's cap colour.
     """
+    if peak_colour is None:
+        peak_colour = _PEAK_COLOURS.get(theme)
     n = len(levels)
     bar_w, gap, left = bar_layout(width, n)
     if field is None:
@@ -110,5 +129,11 @@ def render(levels, peaks, width, height, theme="classic", palette=None,
             p = int(round(float(peaks[i]) * height))
             if p > h and p > 1:
                 row = height - p
-                img[row, x0:x1] = np.minimum(255, field[p - 1, i] * 0.6 + 100).astype(np.uint8)
+                img[row, x0:x1] = (peak_colour if peak_colour is not None else
+                                   np.minimum(255, field[p - 1, i] * 0.6 + 100).astype(np.uint8))
     return Image.fromarray(img, "RGB")
+
+
+def peak_colour_for(theme):
+    """The fixed cap colour for a theme, or None for "paler top colour"."""
+    return _PEAK_COLOURS.get(theme)
