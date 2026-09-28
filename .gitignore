@@ -1,0 +1,24 @@
+# Secrets / credentials -- never commit
+.env
+.env.*
+.cache-*
+*.pem
+credentials*
+secrets*
+
+# Live settings, written by the web panel on the Pi
+config/state.json
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# Previews made by tools/preview.py
+preview.gif
+preview.png
