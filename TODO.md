@@ -1,0 +1,22 @@
+# TODO
+
+## First build on real hardware (needs a Pi, a panel and a Sonos)
+- [ ] Run `install_pi.sh` on fresh Raspberry Pi OS Lite (trixie, 64-bit). Record
+      how long the shairport-sync build takes on a Pi 3A+.
+- [ ] Confirm "Equalize" appears in the iPhone AirPlay picker alongside the Sonos,
+      and both can be ticked together.
+- [ ] Confirm the loopback delivers audio (dashboard: *Sound: music arriving*).
+- [ ] Check by eye that bass hits line up with the Sonos; tune
+      `audio_backend_latency_offset_in_seconds` (starts at -0.05, an estimate).
+- [ ] Confirm that when AirPlay stops, the loopback sends silence or stops
+      (either way the bars should fall within 3 s; the code handles both).
+- [ ] Check the frame rate and CPU temperature on a Pi 3A+ while AirPlay plays.
+- [ ] Try 64×32 and 128×64 panels, if available.
+
+## Possible later
+- [ ] Spotify Connect route (librespot + OwnTone forwarding to the Sonos by
+      AirPlay 2) for Android phones and guests, and so the phone can leave the
+      house. Researched 28 Sep 2026: OwnTone's fifo output is timed to match
+      its AirPlay outputs; librespot 0.8.0 needs Premium.
+- [ ] More styles: mirrored bars, a spectrum "waterfall", a VU meter.
+- [ ] Auto-updater (as Spotipi Photo has).

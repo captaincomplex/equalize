@@ -1,0 +1,15 @@
+[Unit]
+Description=Equalize LED equaliser display
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+# ExecStart and WorkingDirectory are added by install_pi.sh (it knows the
+# install path, the right Python, and the optional Spotify token).
+# Runs as root for GPIO access.
+Environment=PYTHONDONTWRITEBYTECODE=1
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,164 @@
+"""
+audio_source.py -- where the sound comes from. No microphone, ever.
+
+AirPlaySource  the music your iPhone/iPad/Mac/Apple TV is sending to the
+               "Equalize" AirPlay speaker. shairport-sync receives it and
+               plays it into an ALSA loopback -- a virtual cable inside the
+               Pi (the snd-aloop kernel module). We read the other end of that
+               cable with `arecord`. The Pi makes no sound; your Sonos does.
+DemoSource     a made-up drum-and-bass-line pattern generated in code, for
+               checking the panel before AirPlay is set up, and for
+               tools/preview.py.
+
+Both expose .samplerate, .error (None when healthy), .device_name,
+.read(n) -> the newest n samples (mono float32, -1..1), and .close().
+
+Timing: AirPlay 2 tells every speaker in a group exactly when to play each
+moment of audio. shairport-sync honours that for the loopback just as it
+would for a real speaker, so what arrives here lines up with the Sonos.
+"""
+
+import math
+import shutil
+import subprocess
+import threading
+import time
+
+import numpy as np
+
+# Both ends of the loopback must agree on format. install_pi.sh pins
+# shairport-sync's output to exactly this (see config/shairport-sync.conf).
+LOOP_DEVICE = "hw:Loopback,1,0"
+LOOP_RATE = 48000
+LOOP_CHANNELS = 2
+
+
+class _Ring:
+    """Fixed-size buffer that always holds the newest samples."""
+
+    def __init__(self, size):
+        self.buf = np.zeros(size, dtype=np.float32)
+        self.lock = threading.Lock()
+
+    def push(self, x):
+        with self.lock:
+            n = len(x)
+            if n >= len(self.buf):
+                self.buf[:] = x[-len(self.buf):]
+            else:
+                self.buf[:-n] = self.buf[n:]
+                self.buf[-n:] = x
+
+    def latest(self, n):
+        with self.lock:
+            return self.buf[-n:].copy()
+
+
+class AirPlaySource:
+    CHUNK_FRAMES = 480                  # 10 ms at 48 kHz
+
+    def __init__(self, device=LOOP_DEVICE, buffer_size=8192):
+        self.samplerate = LOOP_RATE
+        self.device_name = "AirPlay (%s)" % device
+        self.error = None
+        self.ring = _Ring(buffer_size)
+        self.last_data = 0.0
+        self.proc = None
+        self._stop = False
+        if shutil.which("arecord") is None:
+            self.error = "arecord not found (install alsa-utils)"
+            return
+        cmd = ["arecord", "-q", "-D", device, "-t", "raw", "-f", "S16_LE",
+               "-c", str(LOOP_CHANNELS), "-r", str(LOOP_RATE),
+               "--buffer-time=40000", "--period-time=10000"]
+        try:
+            self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE, bufsize=0)
+        except OSError as e:
+            self.error = "could not start arecord: %s" % e
+            return
+        threading.Thread(target=self._reader, daemon=True).start()
+
+    def _reader(self):
+        chunk = self.CHUNK_FRAMES * LOOP_CHANNELS * 2
+        while not self._stop:
+            data = self.proc.stdout.read(chunk)
+            if not data:
+                err = self.proc.stderr.read().decode(errors="replace").strip()
+                self.error = "loopback closed: %s" % (err or "arecord exited")
+                return
+            pcm = np.frombuffer(data[: len(data) // 4 * 4], dtype="<i2")
+            mono = pcm.reshape(-1, LOOP_CHANNELS).mean(axis=1) / 32768.0
+            self.ring.push(mono.astype(np.float32))
+            self.last_data = time.time()
+
+    def read(self, n):
+        # Audio older than a moment is stale: whether the loopback sends
+        # silence or simply stops when nothing is playing, the bars must fall.
+        if time.time() - self.last_data > 0.3:
+            return np.zeros(n, dtype=np.float32)
+        return self.ring.latest(n)
+
+    def close(self):
+        self._stop = True
+        if self.proc is not None:
+            try:
+                self.proc.terminate()
+                self.proc.wait(timeout=2)
+            except Exception:
+                pass
+            self.proc = None
+
+
+class DemoSource:
+    """A synthetic 120 bpm pattern: kick drum, bass line, hi-hats, pad."""
+
+    BPM = 120.0
+    BASS = [55.0, 55.0, 82.4, 73.4, 65.4, 65.4, 98.0, 87.3]      # A1 A1 E2 D2 C2 C2 G2 F2
+
+    def __init__(self, samplerate=LOOP_RATE):
+        self.samplerate = samplerate
+        self.error = None
+        self.device_name = "demo pattern"
+        self.rng = np.random.default_rng(1)
+
+    def signal(self, t):
+        """Sound at the times in array t (seconds)."""
+        beat = 60.0 / self.BPM
+        pos = np.mod(t, beat)                                   # time since the beat
+        kick = np.sin(2 * math.pi * 50.0 * pos * (1.0 + 2.0 * np.exp(-pos * 30))) * np.exp(-pos * 9)
+        step = (np.floor(t / (beat / 2)) % len(self.BASS)).astype(int)
+        bass = 0.45 * np.sin(2 * math.pi * np.take(self.BASS, step) * t) \
+            * np.exp(-np.mod(t, beat / 2) * 3)
+        off = np.mod(t + beat / 2, beat)                        # off-beat hi-hat
+        hat = 0.25 * self.rng.standard_normal(len(t)) * np.exp(-off * 45)
+        hat = np.diff(np.concatenate([[0.0], hat]))             # keeps it in the treble
+        swell = 0.5 + 0.5 * np.sin(2 * math.pi * t / (beat * 8))
+        pad = 0.12 * swell * sum(np.sin(2 * math.pi * f * t) for f in (440.0, 554.4, 659.3, 1318.5))
+        return (0.6 * kick + bass + hat + pad).astype(np.float32) * 0.5
+
+    def read(self, n, now=None):
+        now = time.time() if now is None else now
+        t = now - (np.arange(n)[::-1] / self.samplerate)
+        return self.signal(t)
+
+    def close(self):
+        pass
+
+
+class SoundDetector:
+    """Is music actually arriving? True once the sound has been above a
+    whisper recently; False after `hold_s` of silence. This is how Equalize
+    knows AirPlay is playing -- a paused stream is pure digital silence."""
+
+    def __init__(self, threshold_db=-60.0, hold_s=3.0):
+        self.threshold = 10 ** (threshold_db / 20.0)
+        self.hold_s = hold_s
+        self.last_loud = 0.0
+
+    def update(self, samples, now=None):
+        now = time.time() if now is None else now
+        rms = float(np.sqrt(np.mean(np.square(samples, dtype=np.float64)))) if len(samples) else 0.0
+        if rms > self.threshold:
+            self.last_loud = now
+        return (now - self.last_loud) < self.hold_s
