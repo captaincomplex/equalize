@@ -47,6 +47,10 @@ cymbals (10,000 Hz = 10 kHz).
 is driven through them, which is why the display program runs as the root
 (administrator) user.
 
+**Hand-over (panel sharing).** When Spotipi Photo and Equalize share a Pi, the
+small `equalize-panel` program stops one and starts the other, triggered by
+AirPlay starting and stopping.
+
 **Loopback.** See *ALSA loopback*.
 
 **NQPTP.** A small companion program shairport-sync needs for AirPlay 2: it
@@ -77,6 +81,10 @@ what lets the iPhone play to a Sonos and the Pi together.
 Sonos). The music then goes from Spotify's servers straight to the speaker,
 which is why nothing else in the house can see it. Equalize uses AirPlay
 instead for that reason.
+
+**sudo / sudoers.** `sudo` runs one command as the administrator. A sudoers
+rule says exactly which commands a given user may run that way; Equalize's
+lets the AirPlay receiver run the panel hand-over, and nothing else.
 
 **systemd service.** A program Linux starts at boot and restarts if it crashes.
 Equalize has two (`equalize` and `equalize-web`), plus shairport-sync's own.

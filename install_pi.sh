@@ -191,14 +191,14 @@ fi
 # ---------------------------------------------------------------------------
 say "Sharing a Pi with Spotipi Photo?"
 PORT=80
-if systemctl is-active --quiet spotipi 2>/dev/null; then
-  note "Spotipi Photo's display is running on this Pi. Only one program can"
-  note "drive the LED panel, so Equalize's display service will be installed"
-  note "but NOT started. Stop spotipi first if you want to switch:"
-  note "    sudo systemctl disable --now spotipi && sudo systemctl enable --now equalize"
-  START_DISPLAY=0
+if [ -e /etc/systemd/system/spotipi.service ]; then
+  SHARED=1
+  note "Spotipi Photo is installed here too. Only one program can drive the"
+  note "LED panel, so they'll take turns: by default Equalize while AirPlay"
+  note "music plays, Spotipi Photo the rest of the time. Change it any time"
+  note "in Equalize's control panel, under 'Sharing with Spotipi Photo'."
 else
-  START_DISPLAY=1
+  SHARED=0
 fi
 if ss -ltn 2>/dev/null | grep -q ':80 ' && ! systemctl is-active --quiet equalize-web; then
   PORT=8080
@@ -231,13 +231,30 @@ sed -i "/\[Service\]/a WorkingDirectory=${INSTALL_PATH}/python/client" /etc/syst
 sed -i "/\[Service\]/a ExecStart=${PYTHON} ${INSTALL_PATH}/python/client/app.py" /etc/systemd/system/equalize-web.service
 sed -i "/\[Service\]/a Environment=EQUALIZE_PORT=${PORT}" /etc/systemd/system/equalize-web.service
 
+# The panel switch: decides at boot, and whenever AirPlay starts or stops,
+# whether Equalize or Spotipi Photo drives the panel (see config/equalize-panel).
+sed "s|@STATE_PATH@|${INSTALL_PATH}/config/state.json|" \
+  "${INSTALL_PATH}/config/equalize-panel" > /usr/local/bin/equalize-panel
+chmod 755 /usr/local/bin/equalize-panel
+cp "${INSTALL_PATH}/config/equalize-panel.service" /etc/systemd/system/
+# The AirPlay receiver runs as its own user; this lets it call the switch
+# (and only the switch). visudo checks the rule before it goes live.
+cp "${INSTALL_PATH}/config/equalize-panel.sudoers" /tmp/equalize-panel.sudoers
+if visudo -cf /tmp/equalize-panel.sudoers >/dev/null; then
+  install -m 440 /tmp/equalize-panel.sudoers /etc/sudoers.d/equalize-panel
+else
+  problem "the sudoers rule for panel sharing failed its check -- sharing won't switch automatically"
+fi
+rm -f /tmp/equalize-panel.sudoers
+
 systemctl daemon-reload
 systemctl enable equalize-web >/dev/null 2>&1
 systemctl restart equalize-web
-if [ "$START_DISPLAY" = "1" ]; then
-  systemctl enable equalize >/dev/null 2>&1
-  systemctl restart equalize
-fi
+# Neither display starts by itself any more: equalize-panel picks one.
+systemctl disable equalize >/dev/null 2>&1
+[ "$SHARED" = "1" ] && systemctl disable spotipi >/dev/null 2>&1
+systemctl enable equalize-panel >/dev/null 2>&1
+/usr/local/bin/equalize-panel boot
 
 # ---------------------------------------------------------------------------
 HOST=$(hostname)
@@ -245,6 +262,7 @@ echo
 echo "Done."
 echo "  Control panel : http://${HOST}.local$( [ "$PORT" = 80 ] || echo ":$PORT" )"
 echo "  Display       : sudo systemctl status equalize"
+[ "$SHARED" = "1" ] && echo "  Panel sharing : equalize-panel status    (Spotipi Photo's panel stays on port 80)"
 echo "  AirPlay       : sudo systemctl status shairport-sync"
 echo
 echo "  To use: on your iPhone, open the AirPlay picker and tick BOTH your"

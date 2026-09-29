@@ -2,6 +2,9 @@
 Description=Equalize LED equaliser display
 After=network-online.target sound.target
 Wants=network-online.target
+# Only one program can drive the LED panel. If Spotipi Photo is on this Pi
+# too, starting either one stops the other (see config/equalize-panel).
+Conflicts=spotipi.service
 
 [Service]
 # ExecStart and WorkingDirectory are added by install_pi.sh (it knows the
