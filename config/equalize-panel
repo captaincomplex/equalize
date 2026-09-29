@@ -1,0 +1,75 @@
+#!/bin/bash
+# equalize-panel -- decides whether Equalize or Spotipi Photo drives the LED panel.
+#
+# Only one program can drive the panel at a time. When Spotipi Photo is
+# installed on the same Pi, this hands the panel between the two:
+#
+#   equalize-panel airplay-start   AirPlay music started   (run by shairport-sync)
+#   equalize-panel airplay-stop    AirPlay quiet for 10 s  (run by shairport-sync)
+#   equalize-panel boot            at start-up             (equalize-panel.service)
+#   equalize-panel use auto|equalize|spotipi               (the web panel)
+#   equalize-panel status          which one has the panel
+#
+# The choice ("panel_share" in Equalize's state.json) decides what happens:
+#   auto      Equalize while AirPlay plays, Spotipi Photo the rest of the time
+#   equalize  always Equalize
+#   spotipi   always Spotipi Photo
+#
+# Without Spotipi Photo installed, Equalize simply always has the panel.
+# install_pi.sh copies this to /usr/local/bin and fills in the state path.
+set -u
+
+STATE="${EQUALIZE_STATE:-@STATE_PATH@}"
+SYSTEMCTL="${SYSTEMCTL:-systemctl}"
+SPOTIPI_UNIT="${SPOTIPI_UNIT_FILE:-/etc/systemd/system/spotipi.service}"
+LOCK="${EQUALIZE_PANEL_LOCK:-/run/equalize-panel.lock}"
+
+share_mode() {
+  python3 - "$STATE" <<'PY' 2>/dev/null || echo auto
+import json, sys
+try:
+    mode = json.load(open(sys.argv[1])).get("panel_share", "auto")
+except Exception:
+    mode = "auto"
+print(mode if mode in ("auto", "equalize", "spotipi") else "auto")
+PY
+}
+
+have_spotipi() { [ -e "$SPOTIPI_UNIT" ]; }
+
+# Stop the other one first, so the two never drive the panel together.
+# (equalize.service also declares Conflicts=spotipi.service as a safety net.)
+show_equalize() { $SYSTEMCTL stop spotipi.service 2>/dev/null; $SYSTEMCTL start equalize.service; }
+show_spotipi()  { $SYSTEMCTL stop equalize.service 2>/dev/null; $SYSTEMCTL start spotipi.service; }
+
+# One change at a time: AirPlay hooks and the web panel can fire together.
+exec 9>"$LOCK" && flock -w 30 9
+
+cmd="${1:-status}"
+if ! have_spotipi; then
+  case "$cmd" in
+    boot|use) $SYSTEMCTL start equalize.service ;;
+    status)   echo "equalize (Spotipi Photo not installed)" ;;
+  esac
+  exit 0
+fi
+
+mode="$(share_mode)"
+case "$cmd" in
+  airplay-start) [ "$mode" = auto ] && show_equalize ;;
+  airplay-stop)  [ "$mode" = auto ] && show_spotipi ;;
+  boot)          if [ "$mode" = equalize ]; then show_equalize; else show_spotipi; fi ;;
+  use)
+    case "${2:-auto}" in
+      equalize) show_equalize ;;
+      spotipi)  show_spotipi ;;
+      auto)     : ;;   # leave the panel with whoever has it; the next AirPlay start or stop decides
+      *)        echo "usage: equalize-panel use auto|equalize|spotipi" >&2; exit 2 ;;
+    esac ;;
+  status)
+    if $SYSTEMCTL is-active --quiet equalize.service; then echo "equalize ($mode)";
+    elif $SYSTEMCTL is-active --quiet spotipi.service; then echo "spotipi ($mode)";
+    else echo "neither ($mode)"; fi ;;
+  *) echo "usage: equalize-panel airplay-start|airplay-stop|boot|use MODE|status" >&2; exit 2 ;;
+esac
+exit 0

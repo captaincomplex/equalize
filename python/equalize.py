@@ -23,6 +23,7 @@ Matrix hardware options come from config/rgb_options.ini.
 import configparser
 import logging
 import os
+import signal
 import sys
 import threading
 import time
@@ -37,7 +38,8 @@ from PIL import Image
 
 from audio_source import AirPlaySource, DemoSource, SoundDetector
 from display_logic import compute_effective, effective_brightness
-from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for, render
+from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for
+from styles import STYLES, draw as draw_style
 from spectrum import Analyzer, BarSmoother
 from state import PREVIEW_PATH, read_state, write_status
 
@@ -123,7 +125,14 @@ def save_preview(img):
     os.replace(tmp, PREVIEW_PATH)
 
 
+def _stop_on_sigterm(signum, frame):
+    # systemctl stop (e.g. handing the panel to Spotipi Photo) sends SIGTERM;
+    # treat it like Ctrl-C so the panel is cleared on the way out.
+    raise KeyboardInterrupt
+
+
 def main():
+    signal.signal(signal.SIGTERM, _stop_on_sigterm)
     matrix, fps = load_matrix()
     width, height = matrix.width, matrix.height
     canvas = matrix.CreateFrameCanvas()
@@ -219,9 +228,10 @@ def main():
 
                 target = analyzer.process(samples, state.get("sensitivity", 50), dt)
                 levels, peaks = smoother.update(target, dt)
-                img = render(levels, peaks, width, height,
-                             show_peaks=bool(state.get("peaks", True)), field=field,
-                             peak_colour=peak_colour_for(shown))
+                style = state.get("style", "sunset")
+                img = draw_style(style if style in STYLES else "sunset", levels, peaks,
+                                 width, height, field, peak_colour=peak_colour_for(shown),
+                                 show_peaks=bool(state.get("peaks", True)))
                 canvas.SetImage(img)
                 canvas = matrix.SwapOnVSync(canvas)
 

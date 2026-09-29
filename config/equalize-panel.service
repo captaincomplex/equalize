@@ -1,0 +1,11 @@
+[Unit]
+Description=Equalize: give the LED panel to Equalize or Spotipi Photo at start-up
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/equalize-panel boot
+
+[Install]
+WantedBy=multi-user.target

@@ -9,7 +9,10 @@ Port 80 by default; set EQUALIZE_PORT to change it (install_pi.sh picks 8080
 if Spotipi Photo's panel already has 80 on the same Pi).
 """
 
+import configparser
+import io
 import os
+import subprocess
 import sys
 import time
 
@@ -18,7 +21,8 @@ sys.dont_write_bytecode = True      # runs as root; keep __pycache__ out
 from flask import Flask, Response, jsonify, redirect, render_template, request, send_file, url_for
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from render import THEMES, theme_css  # noqa: E402
+from render import THEMES, auto_bars, colour_field, peak_colour_for, theme_css  # noqa: E402
+from styles import STYLE_LABELS, STYLES, draw, sample_levels  # noqa: E402
 from state import PREVIEW_PATH, read_state, read_status, reset_timer, write_state  # noqa: E402
 
 app = Flask(__name__)
@@ -28,6 +32,36 @@ VALID_SOURCES = {"airplay", "demo"}
 BAR_CHOICES = [0, 8, 16, 32, 64]
 THEME_LABELS = {"vapor": "Vapor", "classic": "Classic", "rainbow": "Rainbow",
                 "ice": "Ice", "sunset": "Sunset", "album": "Album cover"}
+VALID_SHARE = {"auto", "equalize", "spotipi"}
+CONFIG_INI = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "rgb_options.ini"))
+PANEL_SWITCH = "/usr/local/bin/equalize-panel"
+SPOTIPI_UNIT = os.environ.get("SPOTIPI_UNIT_FILE", "/etc/systemd/system/spotipi.service")
+
+
+def panel_size():
+    """(width, height) of the LED panel, from rgb_options.ini."""
+    try:
+        cfg = configparser.ConfigParser()
+        cfg.read(CONFIG_INI)
+        d = cfg["DEFAULT"]
+        return (int(d["columns"]) * int(d.get("chain_length", 1)), int(d["rows"]) * int(d.get("parallel", 1)))
+    except Exception:
+        return 64, 64
+
+
+def _active(unit):
+    try:
+        return subprocess.run(["systemctl", "is-active", "--quiet", unit], timeout=3).returncode == 0
+    except Exception:
+        return False
+
+
+def share_info():
+    """Is Spotipi Photo on this Pi too, and which of the two has the panel?"""
+    if not os.path.exists(SPOTIPI_UNIT):
+        return {"installed": False}
+    owner = "equalize" if _active("equalize") else "spotipi" if _active("spotipi") else None
+    return {"installed": True, "owner": owner, "mode": read_state().get("panel_share", "auto")}
 
 
 def _int(name, default, lo, hi):
@@ -65,6 +99,7 @@ def dashboard():
         "pi_temp_c": pi_temp_c(),
         "uptime_s": uptime_seconds(),
         "timer_remaining_s": remaining,
+        "share": share_info(),
     }
 
 
@@ -77,8 +112,28 @@ def done():
 @app.route("/")
 def index():
     themes = [(t, THEME_LABELS.get(t, t.title()), theme_css(t)) for t in THEMES]
+    styles = [(st, STYLE_LABELS[st]) for st in STYLES]
+    w, h = panel_size()
     return render_template("index.html", s=read_state(), dash=dashboard(),
-                           themes=themes, bar_choices=BAR_CHOICES)
+                           themes=themes, styles=styles, bar_choices=BAR_CHOICES,
+                           panel_aspect="%d / %d" % (w, h))
+
+
+@app.route("/style/<name>.png")
+def style_preview(name):
+    """A still of one style, at the real panel size, in the current colours."""
+    if name not in STYLES:
+        return Response(status=404)
+    state = read_state()
+    w, h = panel_size()
+    n = int(state.get("bars") or 0) or auto_bars(w)
+    theme = state.get("theme", "vapor")
+    theme = "rainbow" if theme == "album" else theme if theme in THEMES else "vapor"
+    levels, peaks = sample_levels(n)
+    img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme))
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return Response(buf.getvalue(), mimetype="image/png", headers={"Cache-Control": "no-store"})
 
 
 @app.route("/preview.png")
@@ -114,6 +169,8 @@ def set_brightness():
 @app.route("/look", methods=["POST"])
 def set_look():
     state = read_state()
+    style = request.form.get("style", "sunset")
+    state["style"] = style if style in STYLES else "sunset"
     theme = request.form.get("theme", "vapor")
     state["theme"] = theme if theme in THEMES else "vapor"
     bars = _int("bars", 0, 0, 128)
@@ -130,6 +187,18 @@ def set_source():
     state = read_state()
     state["audio_source"] = src if src in VALID_SOURCES else "airplay"
     write_state(state)
+    return done()
+
+
+@app.route("/share", methods=["POST"])
+def set_share():
+    """Who drives the LED panel when Spotipi Photo is on the same Pi."""
+    mode = request.form.get("panel_share", "auto")
+    state = read_state()
+    state["panel_share"] = mode if mode in VALID_SHARE else "auto"
+    write_state(state)
+    if os.path.exists(PANEL_SWITCH):
+        subprocess.run([PANEL_SWITCH, "use", state["panel_share"]], timeout=30)
     return done()
 
 

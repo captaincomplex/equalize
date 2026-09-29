@@ -1,0 +1,4 @@
+# Lets the AirPlay receiver (shairport-sync runs as its own user) hand the LED
+# panel between Equalize and Spotipi Photo -- and nothing else.
+# Installed to /etc/sudoers.d/equalize-panel by install_pi.sh.
+shairport-sync ALL=(root) NOPASSWD: /usr/local/bin/equalize-panel airplay-start, /usr/local/bin/equalize-panel airplay-stop
