@@ -31,7 +31,10 @@ VALID_MODES = {"on", "spotify", "always", "off"}
 VALID_SOURCES = {"airplay", "demo"}
 BAR_CHOICES = [0, 8, 16, 32, 64]
 THEME_LABELS = {"vapor": "Vapor", "classic": "Classic", "rainbow": "Rainbow",
-                "ice": "Ice", "sunset": "Sunset", "album": "Album cover"}
+                "ice": "Ice", "sunset": "Sunset", "fire": "Fire", "ocean": "Ocean",
+                "forest": "Forest", "aurora": "Aurora", "amber": "Amber",
+                "mono": "Warm white", "pastel": "Pastel", "thermal": "Thermal",
+                "album": "Album cover"}
 VALID_SHARE = {"auto", "equalize", "spotipi"}
 CONFIG_INI = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "rgb_options.ini"))
 PANEL_SWITCH = "/usr/local/bin/equalize-panel"
@@ -130,7 +133,8 @@ def style_preview(name):
     theme = state.get("theme", "vapor")
     theme = "rainbow" if theme == "album" else theme if theme in THEMES else "vapor"
     levels, peaks = sample_levels(n)
-    img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme))
+    img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme),
+               still=True)
     buf = io.BytesIO()
     img.save(buf, "PNG")
     return Response(buf.getvalue(), mimetype="image/png", headers={"Cache-Control": "no-store"})
