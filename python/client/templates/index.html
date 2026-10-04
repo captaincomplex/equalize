@@ -1,354 +1,491 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-ui="{{ s.ui if s.ui in ('rack', 'player') else 'rack' }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#12042e">
+<meta name="theme-color" content="#0f1012">
 <meta name="apple-mobile-web-app-title" content="Equalize">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Equalize</title>
 <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32">
 <link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
 <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
 <style>
-  /* Palette: the logo's. Night sky, a sun that runs peach to pink to purple,
-     and a neon-cyan grid. */
+  /* Fonts live on the Pi (static/fonts, SIL Open Font Licence): the page
+     works with no internet. */
+  @font-face { font-family: "Barlow"; font-weight: 400; font-display: swap; src: url("{{ url_for('static', filename='fonts/barlow-400.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Barlow"; font-weight: 500; font-display: swap; src: url("{{ url_for('static', filename='fonts/barlow-500.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Barlow"; font-weight: 600; font-display: swap; src: url("{{ url_for('static', filename='fonts/barlow-600.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Barlow Semi Condensed"; font-weight: 500; font-display: swap; src: url("{{ url_for('static', filename='fonts/barlow-semi-condensed-500.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; font-display: swap; src: url("{{ url_for('static', filename='fonts/barlow-semi-condensed-600.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Barlow Semi Condensed"; font-weight: 700; font-display: swap; src: url("{{ url_for('static', filename='fonts/barlow-semi-condensed-700.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Share Tech Mono"; font-weight: 400; font-display: swap; src: url("{{ url_for('static', filename='fonts/share-tech-mono-400.woff2') }}") format("woff2"); }
+  @font-face { font-family: "Silkscreen"; font-weight: 400; font-display: swap; src: url("{{ url_for('static', filename='fonts/silkscreen-400.woff2') }}") format("woff2"); }
+
+  /* ================================================================
+     Shared structure. Two skins dress it: RACK (studio rack units) and
+     PLAYER (an early-2000s media player). Every control is the same
+     element in both; only the dressing changes.
+     ================================================================ */
   :root {
-    --sky-0: #0b0320; --sky-1: #12042e; --sky-2: #2a0e52;
-    --card: rgba(34, 12, 66, 0.72); --card-edge: rgba(255, 95, 200, 0.22);
-    --well: rgba(10, 3, 30, 0.6); --line: rgba(185, 150, 255, 0.18);
-    --text: #f6efff; --muted: #c2b2e6; --faint: #8f7cb8;
-    --pink: #ff5fc8; --purple: #a94bff; --cyan: #2de2f5; --peach: #ff9d7a; --sun: #fff6a0;
-    --good: #2de2f5; --warn: #ffc46b; --bad: #ff6b8b;
-    --sunset: linear-gradient(90deg, var(--pink), var(--purple) 55%, var(--cyan));
-    --radius: 18px;
+    --body: "Barlow", system-ui, sans-serif;
+    --label: "Barlow Semi Condensed", "Barlow", system-ui, sans-serif;
+    --readout: "Share Tech Mono", ui-monospace, monospace;
+    --on: #39d353; --amber: #ffb020; --red: #ff4b3e;
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
-  html { background: var(--sky-0); }
-  body {
-    margin: 0; min-height: 100vh; color: var(--text);
-    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-    background:
-      radial-gradient(120% 60% at 50% 0%, #3b1066 0%, transparent 60%),
-      linear-gradient(180deg, var(--sky-1), var(--sky-0) 70%);
-    background-attachment: fixed;
-    -webkit-font-smoothing: antialiased;
-  }
-  /* The neon floor, fixed behind everything, fading up into the sky. */
-  body::before {
-    content: ""; position: fixed; left: -50%; right: -50%; bottom: -10vh; height: 55vh;
-    z-index: -1; pointer-events: none;
-    background:
-      linear-gradient(transparent 0 94%, rgba(45, 226, 245, .5) 94% 100%) 0 0 / 100% 48px,
-      linear-gradient(90deg, transparent 0 97%, rgba(45, 226, 245, .5) 97% 100%) 0 0 / 60px 100%;
-    transform: perspective(300px) rotateX(62deg); transform-origin: 50% 100%;
-    -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 85%);
-            mask-image: linear-gradient(to top, #000 10%, transparent 85%);
-    opacity: .5;
-  }
-  main { max-width: 580px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 64px; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; min-height: 100vh; font: 16px/1.5 var(--body); -webkit-font-smoothing: antialiased; }
+  main { max-width: 600px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 12px 96px; }
+  h1, h2, h3, p { margin: 0; }
+  b { font-weight: 600; }
+  input, button { font: inherit; color: inherit; }
+  img { display: block; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-  header { display: flex; align-items: center; gap: 14px; margin: 8px 2px 20px; }
-  header .icon { width: 52px; height: 52px; border-radius: 13px; flex: none;
-                 box-shadow: 0 6px 24px rgba(255, 95, 200, .35); }
-  header .wordmark { height: 26px; width: auto; display: block; }
-  header .tag { margin: 6px 0 0; font-size: 11px; letter-spacing: .32em; color: var(--muted); }
+  /* header: the name, and the switch between the two skins */
+  .brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 12px; }
+  .brand h1 { font: 700 26px/1 var(--label); letter-spacing: .14em; text-transform: uppercase; }
+  .skin-switch { display: flex; }
+  .skin-switch label { position: relative; cursor: pointer; }
+  .skin-switch input, .seg input, .styles input, .swatch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .skin-switch span { display: block; padding: 8px 12px; font: 600 13px/1 var(--label); letter-spacing: .12em; text-transform: uppercase; }
 
-  section {
-    background: var(--card); border: 1px solid var(--card-edge); border-radius: var(--radius);
-    padding: 18px; margin-bottom: 16px;
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 10px 40px rgba(5, 0, 20, .45);
-  }
-  h2 { margin: 0 0 14px; font-size: 12px; font-weight: 700; letter-spacing: .22em;
-       text-transform: uppercase; color: var(--cyan); }
-  h3 { margin: 22px 0 10px; font-size: 15px; font-weight: 600; }
-  .hint { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
-  .hint b { color: var(--text); font-weight: 600; }
-  hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+  .unit { display: grid; grid-template-columns: 30px 1fr; margin-bottom: 8px; }
+  .ear { display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 0; }
+  .ear-label { writing-mode: vertical-rl; transform: rotate(180deg); font: 600 11px/1 var(--label); letter-spacing: .28em; text-transform: uppercase; }
+  .screw { width: 11px; height: 11px; border-radius: 50%; position: relative; flex: none; }
+  .screw::after { content: ""; position: absolute; left: 2px; right: 2px; top: 50%; height: 1.5px; margin-top: -.75px; transform: rotate(-35deg); }
+  .face { padding: 16px 16px 18px; min-width: 0; }
+  .face h2 { margin-bottom: 14px; }
+  h3 { margin: 18px 0 8px; font: 600 13px/1.2 var(--label); letter-spacing: .14em; text-transform: uppercase; }
+  .hint { margin-top: 10px; font-size: 14px; line-height: 1.5; }
+  hr { border: 0; height: 1px; margin: 18px 0; }
 
-  /* --- Now on the panel --- */
-  .panel {
-    position: relative; margin: 0 auto 14px; width: 100%;
-    aspect-ratio: var(--panel-aspect, 1 / 1); max-height: 60vh;
-    background: #000; border-radius: 12px; overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, .08);
-    box-shadow: 0 0 0 6px #140629, 0 0 44px rgba(169, 75, 255, .35);
-  }
-  .panel img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-  /* A dot mask so the preview looks like LEDs rather than square pixels. */
-  .panel::after {
-    content: ""; position: absolute; inset: 0; pointer-events: none;
-    background: radial-gradient(circle, transparent 52%, #000 64%) 0 0 /
-                calc(100% / var(--panel-w, 64)) calc(100% / var(--panel-h, 64));
-  }
-  .headline { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad);
-         box-shadow: 0 0 10px var(--bad); flex: none; }
-  .dot.ok { background: var(--good); box-shadow: 0 0 10px var(--good); }
-  .song { margin: 4px 0 0 20px; color: var(--muted); }
+  /* the live picture of the panel */
+  .panel { position: relative; margin: 0 auto; max-width: min(100%, calc(320px * var(--panel-w, 1) / var(--panel-h, 1))); aspect-ratio: var(--panel-aspect, 1 / 1); }
+  .panel img { width: 100%; height: 100%; image-rendering: pixelated; }
+
+  /* status */
+  .readout { margin-top: 12px; padding: 12px 14px; }
+  .headline { display: flex; align-items: center; gap: 10px; font: 600 17px/1.3 var(--label); letter-spacing: .06em; text-transform: uppercase; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--red); }
+  .dot.ok { background: var(--on); }
+  .song { margin-top: 4px; font-size: 15px; }
   .song:empty { display: none; }
-  .song b { color: var(--pink); font-weight: 600; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding: 0; list-style: none; }
-  .chips li { background: var(--well); border: 1px solid var(--line); border-radius: 999px;
-              padding: 4px 11px; font-size: 13px; color: var(--muted); }
-  .chips li b { color: var(--text); font-weight: 600; }
-  .problem { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 14px;
-             background: rgba(255, 196, 107, .1); border: 1px solid rgba(255, 196, 107, .35);
-             color: var(--warn); }
+  .chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 2px 14px; margin: 10px 0 0; padding: 0; list-style: none; font: 14px/1.6 var(--readout); }
+  .chips b { font-weight: 400; white-space: nowrap; }
+  .chips .wide { grid-column: span 2; }
+  .problem { margin-top: 12px; padding: 10px 12px; font-size: 14px; }
   .problem:empty { display: none; }
 
-  /* --- Segmented controls (modes, bar count) --- */
-  .seg { display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); gap: 4px; padding: 4px;
-         background: var(--well); border: 1px solid var(--line); border-radius: 14px; }
+  /* push-button rows (mode, bars, sharing, source) */
+  .seg { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 6px; }
+  .seg.modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 420px) { .seg.modes { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
   .seg label { position: relative; }
-  .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-  .seg span { display: block; text-align: center; padding: 10px 4px; border-radius: 10px;
-              font-size: 14px; font-weight: 600; color: var(--muted); transition: background .15s, color .15s; }
-  .seg input:checked + span { background: var(--sunset); color: #1a0433;
-                              box-shadow: 0 4px 18px rgba(255, 95, 200, .4); }
-  .seg input:focus-visible + span { outline: 2px solid var(--cyan); outline-offset: 2px; }
-  @media (max-width: 420px) { .seg.modes { --n: 2 !important; } }
+  .seg span { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 8px 6px; text-align: center; font: 600 14px/1.15 var(--label); letter-spacing: .08em; text-transform: uppercase; }
 
-  /* --- Sliders --- */
+  /* sliders */
   .slider { display: flex; align-items: center; gap: 14px; }
-  .slider output { min-width: 2.5ch; text-align: right; font-variant-numeric: tabular-nums;
-                   font-weight: 700; color: var(--sun); }
-  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 28px;
-                      background: transparent; margin: 0; }
-  input[type=range]::-webkit-slider-runnable-track {
-    height: 8px; border-radius: 99px;
-    background: linear-gradient(90deg, var(--pink), var(--purple) var(--fill, 50%), rgba(255,255,255,.12) var(--fill, 50%)); }
-  input[type=range]::-moz-range-track { height: 8px; border-radius: 99px; background: rgba(255,255,255,.12); }
-  input[type=range]::-moz-range-progress { height: 8px; border-radius: 99px; background: linear-gradient(90deg, var(--pink), var(--purple)); }
-  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -8px;
-    border-radius: 50%; background: var(--sun); border: 3px solid #1a0433; box-shadow: 0 0 0 2px var(--pink), 0 0 14px var(--pink); }
-  input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--sun);
-    border: 3px solid #1a0433; box-shadow: 0 0 0 2px var(--pink), 0 0 14px var(--pink); }
-  input[type=range]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; border-radius: 99px; }
+  .slider output { min-width: 3ch; text-align: right; font: 18px/1 var(--readout); }
+  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 44px; margin: 0; background: transparent; cursor: pointer; }
+  input[type=range]:focus { outline: none; }
 
-  /* --- Colour swatches --- */
-  .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .swatch { position: relative; cursor: pointer; }
-  .swatch input { position: absolute; opacity: 0; }
-  .swatch .chip { display: block; height: 56px; border-radius: 12px; border: 2px solid transparent;
-                  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
-  .swatch .name { display: block; margin-top: 6px; font-size: 13px; text-align: center; color: var(--muted); }
-  .swatch input:checked ~ .chip { border-color: var(--text); box-shadow: 0 0 0 3px rgba(45,226,245,.55), 0 0 22px rgba(255,95,200,.45); }
-  .swatch input:checked ~ .name { color: var(--text); font-weight: 600; }
-  .swatch input:focus-visible ~ .chip { outline: 2px solid var(--cyan); outline-offset: 3px; }
-
-  /* --- Style picker: live stills of each style --- */
-  .styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  /* style picker */
+  .styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
   .style { position: relative; cursor: pointer; }
-  .style input { position: absolute; opacity: 0; }
-  .style img { display: block; width: 100%; aspect-ratio: var(--panel-aspect, 1 / 1); background: #000;
-               image-rendering: pixelated; border-radius: 10px; border: 2px solid transparent;
-               box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
-  .style .name { display: block; margin-top: 6px; font-size: 13px; text-align: center; color: var(--muted); }
-  .style input:checked ~ img { border-color: var(--text); box-shadow: 0 0 0 3px rgba(45,226,245,.55), 0 0 22px rgba(255,95,200,.45); }
-  .style input:checked ~ .name { color: var(--text); font-weight: 600; }
-  .style input:focus-visible ~ img { outline: 2px solid var(--cyan); outline-offset: 3px; }
+  .style img { width: 100%; aspect-ratio: var(--panel-aspect, 1 / 1); object-fit: contain; image-rendering: pixelated; background: #000; }
+  .style .name { display: block; margin-top: 6px; text-align: center; font: 600 12px/1.2 var(--label); letter-spacing: .1em; text-transform: uppercase; }
 
-  /* --- Switches --- */
-  .switch { display: flex; align-items: center; justify-content: space-between; gap: 16px;
-            padding: 6px 0; cursor: pointer; }
-  .switch input { -webkit-appearance: none; appearance: none; flex: none; margin: 0; cursor: pointer;
-                  width: 50px; height: 30px; border-radius: 99px; position: relative;
-                  background: rgba(255,255,255,.14); border: 1px solid var(--line); transition: background .2s; }
-  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
-                         border-radius: 50%; background: #fff; transition: transform .2s; }
-  .switch input:checked { background: var(--sunset); border-color: transparent; }
-  .switch input:checked::after { transform: translateX(20px); }
-  .switch input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+  /* colour swatches */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+  .swatch { position: relative; cursor: pointer; }
+  .swatch .chip { display: block; height: 30px; }
+  .swatch .name { display: block; margin-top: 5px; font-size: 13px; text-align: center; }
 
-  /* --- Small inputs --- */
-  .inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; color: var(--muted); }
-  input[type=number], input[type=time] {
-    font: inherit; color: var(--text); background: var(--well); border: 1px solid var(--line);
-    border-radius: 10px; padding: 8px 10px; min-width: 0; }
-  input[type=number] { width: 6.5em; }
-  input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-  .muted-when-off:has(input[type=checkbox]:not(:checked)) .inline { opacity: .45; }
+  /* on/off switches */
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; font: 600 15px/1.2 var(--label); letter-spacing: .1em; text-transform: uppercase; }
+  .switch input { -webkit-appearance: none; appearance: none; margin: 0; flex: none; cursor: pointer; position: relative; }
+  .inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 15px; }
+  input[type=number], input[type=time] { min-height: 40px; padding: 6px 10px; font: 16px/1 var(--readout); }
+  input[type=number] { width: 7.5ch; }
+  input[type=number][step] { width: 11ch; }
+  .muted-when-off:has(input[type=checkbox]:not(:checked)) .inline { opacity: .5; }
 
-  /* --- Toast --- */
-  .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 5;
-           transform: translate(-50%, 24px); opacity: 0; visibility: hidden;
-           padding: 10px 18px; border-radius: 999px;
-           background: #1a0433; border: 1px solid var(--cyan); color: var(--text); font-size: 14px;
-           box-shadow: 0 0 24px rgba(45,226,245,.35);
-           transition: transform .25s, opacity .25s, visibility .25s; }
-  .toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
-  .toast.err { border-color: var(--bad); box-shadow: 0 0 24px rgba(255,107,139,.35); }
+  /* the acknowledgement after a change */
+  .toast { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); z-index: 5;
+           transform: translate(-50%, 12px); opacity: 0; visibility: hidden; padding: 10px 18px;
+           font: 15px/1 var(--readout); letter-spacing: .14em; text-transform: uppercase;
+           transition: opacity .18s ease-out, transform .18s cubic-bezier(.2, .8, .2, 1), visibility 0s .18s; }
+  .toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; transition: opacity .18s ease-out, transform .18s cubic-bezier(.2, .8, .2, 1); }
+
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .seg input:focus-visible + span, .skin-switch input:focus-visible + span,
+  .styles input:focus-visible ~ img, .swatch input:focus-visible + .chip { outline: 2px solid var(--focus); outline-offset: 2px; }
+  ::selection { background: var(--select-bg); color: var(--select-fg); }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-  noscript button { margin-top: 12px; }
-  button { font: inherit; color: #1a0433; background: var(--sunset); border: 0; border-radius: 10px;
-           padding: 9px 16px; font-weight: 700; cursor: pointer; }
+  /* ================================================================
+     RACK: stacked studio gear. Dark anodised faces, engraved legends,
+     signal LEDs as the only colour.
+     ================================================================ */
+  [data-ui=rack] {
+    --rail: #0f1012; --face: #1d1f22; --face-hi: #26292d; --ear: #17191b; --gap: #08090a;
+    --legend: #d6d9dd; --muted: #9aa0a8; --dim: #6f757d; --well: #0b0c0d;
+    --focus: #ffb020; --select-bg: #ffb020; --select-fg: #111;
+    background: var(--rail); color: var(--legend);
+    scrollbar-color: #3a3e44 var(--rail);
+  }
+  [data-ui=rack] body { background: var(--rail); }
+  [data-ui=rack] .brand h1 { color: var(--legend); }
+  [data-ui=rack] .skin-switch { background: var(--well); border: 1px solid #2a2d31; border-radius: 4px; padding: 3px; }
+  [data-ui=rack] .skin-switch span { color: var(--muted); border-radius: 2px; }
+  [data-ui=rack] .skin-switch input:checked + span { background: var(--face-hi); color: var(--legend); box-shadow: inset 0 2px 0 var(--on); }
+
+  [data-ui=rack] .unit { border-radius: 4px; overflow: hidden;
+      background: linear-gradient(180deg, var(--face-hi), var(--face) 18px);
+      box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 3px 8px rgba(0,0,0,.45); }
+  [data-ui=rack] .ear { background: var(--ear); border-right: 1px solid var(--gap); }
+  [data-ui=rack] .ear-label { color: var(--dim); }
+  [data-ui=rack] .screw { background: radial-gradient(circle at 35% 30%, #5d636b, #2b2e33 70%); box-shadow: 0 1px 1px rgba(0,0,0,.6); }
+  [data-ui=rack] .screw::after { background: #15171a; }
+  [data-ui=rack] .face h2 { font: 700 15px/1 var(--label); letter-spacing: .22em; text-transform: uppercase; color: var(--legend);
+      padding-bottom: 10px; border-bottom: 1px solid #2c3035; }
+  [data-ui=rack] h3 { color: var(--muted); }
+  [data-ui=rack] .hint { color: var(--muted); }
+  [data-ui=rack] .hint b { color: var(--legend); }
+  [data-ui=rack] hr { background: #2c3035; }
+
+  [data-ui=rack] .panel { padding: 10px; background: #050505; border-radius: 3px;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,.9), 0 0 0 1px #2c3035; }
+  [data-ui=rack] .readout { background: var(--well); border-radius: 3px; box-shadow: inset 0 1px 4px rgba(0,0,0,.8); }
+  [data-ui=rack] .headline { color: var(--amber); }
+  [data-ui=rack] .dot { box-shadow: 0 0 0 2px #2a1210; }
+  [data-ui=rack] .dot.ok { box-shadow: 0 0 0 2px #10261a, 0 0 8px rgba(57,211,83,.7); }
+  [data-ui=rack] .song { color: var(--legend); }
+  [data-ui=rack] .chips { color: var(--muted); }
+  [data-ui=rack] .chips b { color: var(--amber); }
+  [data-ui=rack] .problem { background: #261a08; color: #ffd27a; border-radius: 3px; }
+
+  /* push buttons with an LED above the legend */
+  [data-ui=rack] .seg span { position: relative; padding-top: 18px; background: linear-gradient(180deg, #2c3035, #222529);
+      color: var(--muted); border-radius: 3px; box-shadow: 0 1px 0 rgba(255,255,255,.07) inset, 0 2px 0 #0a0b0c;
+      transition: background .15s ease-out, color .15s ease-out, transform .1s ease-out; }
+  [data-ui=rack] .seg span::before { content: ""; position: absolute; top: 7px; left: 50%; width: 14px; height: 4px; margin-left: -7px;
+      border-radius: 2px; background: #2a1d0b; transition: background .15s ease-out, box-shadow .15s ease-out; }
+  [data-ui=rack] .seg input:checked + span { color: var(--legend); background: linear-gradient(180deg, #24272b, #1b1d20); transform: translateY(1px);
+      box-shadow: 0 1px 2px rgba(0,0,0,.6) inset; }
+  [data-ui=rack] .seg input:checked + span::before { background: var(--on); box-shadow: 0 0 8px rgba(57,211,83,.8); }
+  [data-ui=rack] .seg label:hover span { color: var(--legend); }
+
+  /* faders */
+  [data-ui=rack] input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px;
+      background: linear-gradient(90deg, #4a4f56 var(--fill, 50%), #070808 var(--fill, 50%)); box-shadow: inset 0 1px 2px rgba(0,0,0,.9); }
+  [data-ui=rack] input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: #070808; }
+  [data-ui=rack] input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: #4a4f56; }
+  [data-ui=rack] input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 36px; margin-top: -15px; border: 0; border-radius: 3px;
+      background: linear-gradient(90deg, transparent 9px, #f2f3f4 9px 13px, transparent 13px), linear-gradient(180deg, #8a9098, #4d525a);
+      box-shadow: 0 2px 4px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.3) inset; }
+  [data-ui=rack] input[type=range]::-moz-range-thumb { width: 22px; height: 36px; border: 0; border-radius: 3px;
+      background: linear-gradient(90deg, transparent 9px, #f2f3f4 9px 13px, transparent 13px), linear-gradient(180deg, #8a9098, #4d525a);
+      box-shadow: 0 2px 4px rgba(0,0,0,.7); }
+  [data-ui=rack] input[type=range]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+  [data-ui=rack] .slider output { color: var(--amber); background: var(--well); padding: 6px 8px; border-radius: 3px; }
+
+  /* style picker: a little screen each, the name on label tape */
+  [data-ui=rack] .style img { border-radius: 3px; box-shadow: 0 0 0 1px #2c3035; transition: box-shadow .15s ease-out; }
+  [data-ui=rack] .style .name { width: fit-content; max-width: 100%; margin: 7px auto 0; padding: 3px 7px; background: #0c0d0e; color: #eef0f2;
+      border-radius: 2px; box-shadow: 0 1px 0 rgba(255,255,255,.08); }
+  [data-ui=rack] .style input:checked ~ img { box-shadow: 0 0 0 2px var(--on); }
+  [data-ui=rack] .style input:checked ~ .name { background: var(--on); color: #07150b; }
+  [data-ui=rack] .swatch .chip { border-radius: 3px; box-shadow: 0 0 0 1px #2c3035; }
+  [data-ui=rack] .swatch .name { color: var(--muted); }
+  [data-ui=rack] .swatch input:checked + .chip { box-shadow: 0 0 0 2px var(--legend); }
+  [data-ui=rack] .swatch input:checked ~ .name { color: var(--legend); font-weight: 600; }
+
+  /* rocker switch with an LED */
+  [data-ui=rack] .switch { color: var(--legend); }
+  [data-ui=rack] .switch input { width: 54px; height: 30px; border-radius: 4px; background: linear-gradient(180deg, #2c3035, #1f2225);
+      box-shadow: 0 1px 0 rgba(255,255,255,.07) inset, 0 2px 0 #0a0b0c; }
+  [data-ui=rack] .switch input::before { content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 3px;
+      background: linear-gradient(180deg, #6b717a, #3e434a); transition: transform .15s ease-out; }
+  [data-ui=rack] .switch input::after { content: ""; position: absolute; top: 12px; right: 9px; width: 6px; height: 6px; border-radius: 50%; background: #2a1d0b; }
+  [data-ui=rack] .switch input:checked::before { transform: translateX(24px); }
+  [data-ui=rack] .switch input:checked::after { right: auto; left: 9px; background: var(--on); box-shadow: 0 0 6px rgba(57,211,83,.9); }
+  [data-ui=rack] input[type=number], [data-ui=rack] input[type=time] { background: var(--well); color: var(--amber); border: 1px solid #2c3035; border-radius: 3px; }
+  [data-ui=rack] .inline { color: var(--muted); }
+
+  [data-ui=rack] .toast { background: #050505; color: var(--amber); border-radius: 3px; box-shadow: 0 0 0 1px #2c3035, 0 6px 18px rgba(0,0,0,.6); }
+  [data-ui=rack] .toast.err { color: #ff8a80; }
+
+  /* ================================================================
+     PLAYER: an early-2000s media player. Graphite bevelled chrome,
+     a title bar per window, green-on-black LCD readouts.
+     ================================================================ */
+  [data-ui=player] {
+    --desk: #1b1e22; --chrome: #3a3f47; --chrome-lo: #2b2f35; --hi: #6a727d; --lo: #111316;
+    --text: #e6e9ec; --muted: #a9b0b8; --lcd: #000; --lcd-on: #3cff5c; --lcd-dim: #239a39;
+    --title: #121417; --focus: #3cff5c; --select-bg: #3cff5c; --select-fg: #000;
+    background: var(--desk); color: var(--text);
+    scrollbar-color: #4a5059 var(--desk);
+  }
+  [data-ui=player] body { background: var(--desk); }
+  [data-ui=player] .brand h1 { font-family: "Silkscreen", var(--label); font-weight: 400; font-size: 22px; letter-spacing: .08em; color: var(--text); }
+  [data-ui=player] .skin-switch { gap: 4px; }
+  [data-ui=player] .skin-switch span { font-family: "Silkscreen", var(--label); font-weight: 400; font-size: 11px; letter-spacing: .06em;
+      background: var(--chrome); color: var(--muted); border: 1px solid; border-color: var(--hi) var(--lo) var(--lo) var(--hi); }
+  [data-ui=player] .skin-switch input:checked + span { color: var(--lcd-on); background: var(--chrome-lo); border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+
+  [data-ui=player] .unit { display: block; margin-bottom: 10px; background: var(--chrome);
+      border: 1px solid; border-color: var(--hi) var(--lo) var(--lo) var(--hi); box-shadow: 0 4px 10px rgba(0,0,0,.4); }
+  [data-ui=player] .ear { display: none; }
+  [data-ui=player] .face { padding: 0 10px 14px; }
+  [data-ui=player] .face h2 { display: flex; align-items: center; gap: 8px; margin: 0 -10px 12px; padding: 6px 10px;
+      background: var(--title); color: var(--text); font: 400 12px/1 "Silkscreen", var(--label); letter-spacing: .1em; text-transform: uppercase; }
+  /* the title bar's grip lines, between the name and the window's edge */
+  [data-ui=player] .face h2::after { content: ""; flex: 1; height: 6px;
+      background: repeating-linear-gradient(180deg, var(--hi) 0 1px, transparent 1px 3px); opacity: .6; }
+  [data-ui=player] h3 { font: 400 11px/1.2 "Silkscreen", var(--label); letter-spacing: .08em; color: var(--muted); }
+  [data-ui=player] .hint { color: var(--muted); }
+  [data-ui=player] .hint b { color: var(--text); }
+  [data-ui=player] hr { background: var(--lo); box-shadow: 0 1px 0 var(--hi); }
+
+  [data-ui=player] .panel { padding: 6px; background: #000; border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+  [data-ui=player] .readout { padding: 10px 12px; background: var(--lcd); color: var(--lcd-on); border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+  [data-ui=player] .headline { font: 400 14px/1.3 "Silkscreen", var(--label); letter-spacing: .04em; color: var(--lcd-on); }
+  [data-ui=player] .dot { border-radius: 0; width: 8px; height: 8px; }
+  [data-ui=player] .song { font-family: var(--readout); color: var(--lcd-on); }
+  [data-ui=player] .chips { color: var(--lcd-dim); }
+  [data-ui=player] .chips b { color: var(--lcd-on); }
+  [data-ui=player] .problem { background: #000; color: #ffcc33; border: 1px solid #5c4a12; font-family: var(--readout); }
+
+  /* square bevelled buttons that go in when chosen */
+  [data-ui=player] .seg { gap: 3px; }
+  [data-ui=player] .seg span { background: linear-gradient(180deg, #474d56, var(--chrome-lo)); color: var(--text);
+      font: 400 11px/1.2 "Silkscreen", var(--label); letter-spacing: .04em; min-height: 44px;
+      border: 1px solid; border-color: var(--hi) var(--lo) var(--lo) var(--hi); }
+  [data-ui=player] .seg input:checked + span { background: #000; color: var(--lcd-on); border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+  [data-ui=player] .seg label:hover span { filter: brightness(1.12); }
+
+  /* EQ-fader sliders: a groove, a ribbed thumb, lit to the value */
+  [data-ui=player] input[type=range]::-webkit-slider-runnable-track { height: 8px; border: 1px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo);
+      background: linear-gradient(90deg, var(--lcd-dim) var(--fill, 50%), #000 var(--fill, 50%)); }
+  [data-ui=player] input[type=range]::-moz-range-track { height: 8px; background: #000; border: 1px solid var(--lo); }
+  [data-ui=player] input[type=range]::-moz-range-progress { height: 8px; background: var(--lcd-dim); }
+  [data-ui=player] input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 30px; margin-top: -12px;
+      background: repeating-linear-gradient(180deg, #8a929c 0 2px, #5a616b 2px 4px); border: 1px solid; border-color: #b8c0c9 var(--lo) var(--lo) #b8c0c9; }
+  [data-ui=player] input[type=range]::-moz-range-thumb { width: 16px; height: 30px; border-radius: 0;
+      background: repeating-linear-gradient(180deg, #8a929c 0 2px, #5a616b 2px 4px); border: 1px solid var(--lo); }
+  [data-ui=player] .slider output { color: var(--lcd-on); background: #000; padding: 6px 8px; border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+
+  [data-ui=player] .style img { border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+  [data-ui=player] .style .name { font: 400 11px/1.2 "Silkscreen", var(--label); letter-spacing: .02em; color: var(--muted); }
+  [data-ui=player] .style input:checked ~ img { border-color: var(--lcd-on); }
+  [data-ui=player] .style input:checked ~ .name { color: var(--lcd-on); }
+  [data-ui=player] .swatch .chip { border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+  [data-ui=player] .swatch .name { color: var(--muted); }
+  [data-ui=player] .swatch input:checked + .chip { border-color: var(--lcd-on); }
+  [data-ui=player] .swatch input:checked ~ .name { color: var(--lcd-on); }
+
+  /* a square tick box, drawn */
+  [data-ui=player] .switch { font: 400 12px/1.2 "Silkscreen", var(--label); letter-spacing: .04em; }
+  [data-ui=player] .switch input { width: 26px; height: 26px; background: #000; border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+  [data-ui=player] .switch input:checked::after { content: ""; position: absolute; left: 7px; top: 2px; width: 7px; height: 13px;
+      border: solid var(--lcd-on); border-width: 0 3px 3px 0; transform: rotate(40deg); }
+  [data-ui=player] input[type=number], [data-ui=player] input[type=time] { background: #000; color: var(--lcd-on); border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); border-radius: 0; }
+  [data-ui=player] .inline { color: var(--muted); }
+
+  /* the acknowledgement as a status bar along the bottom */
+  [data-ui=player] .toast { left: 0; right: 0; bottom: 0; transform: translateY(100%); padding: 10px 14px max(10px, env(safe-area-inset-bottom));
+      background: #000; color: var(--lcd-on); border-top: 2px solid var(--hi); text-align: left; }
+  [data-ui=player] .toast.show { transform: translateY(0); }
+  [data-ui=player] .toast.err { color: #ffcc33; }
 </style>
 </head>
 <body style="--panel-aspect: {{ panel_aspect }}">
 <main>
 
-<header>
-  <img class="icon" src="{{ url_for('static', filename='icon-192.png') }}" alt="">
-  <div>
-    <h1 style="margin:0"><img class="wordmark" src="{{ url_for('static', filename='wordmark.svg') }}" alt="Equalize"></h1>
-    <p class="tag">YOUR MUSIC, ON THE WALL</p>
-  </div>
+<header class="brand">
+  <h1>Equalize</h1>
+  <form method="post" action="/ui" data-autosave class="skin-switch" role="radiogroup" aria-label="Control panel look">
+    <label><input type="radio" name="ui" value="rack" {{ 'checked' if s.ui != 'player' }}><span>Rack</span></label>
+    <label><input type="radio" name="ui" value="player" {{ 'checked' if s.ui == 'player' }}><span>Player</span></label>
+    <noscript><button>Save</button></noscript>
+  </form>
 </header>
 
-<section aria-labelledby="now-h">
-  <h2 id="now-h">Now on the panel</h2>
-  <div class="panel" id="panel" style="--panel-aspect: {{ panel_aspect }}"><img id="preview" src="/preview.png" alt="Live snapshot of the LED panel"></div>
-  <div class="headline"><span id="alive" class="dot" aria-hidden="true"></span><span id="headline">Connecting…</span></div>
-  <p class="song" id="song"></p>
-  <ul class="chips" aria-label="Status">
-    <li>Sound <b id="st-sound">–</b></li>
-    <li>Panel <b id="st-panel">–</b></li>
-    <li><b id="st-fps">–</b> fps</li>
-    <li>Brightness <b id="st-bright">–</b></li>
-    <li>Timer <b id="st-timer">–</b></li>
-    <li><b id="st-temp">–</b></li>
-    <li>Up <b id="st-up">–</b></li>
-  </ul>
-  <p class="problem" id="problem" role="status"></p>
+<section class="unit" aria-labelledby="now-h">
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Panel</span><span class="screw"></span></div>
+  <div class="face">
+    <h2 id="now-h">Now on the panel</h2>
+    <div class="panel" id="panel" style="--panel-aspect: {{ panel_aspect }}"><img id="preview" src="/preview.png" alt="Live snapshot of the LED panel"></div>
+    <div class="readout">
+      <div class="headline"><span id="alive" class="dot" aria-hidden="true"></span><span id="headline">Connecting…</span></div>
+      <p class="song" id="song"></p>
+      <ul class="chips" aria-label="Status">
+        <li>Sound <b id="st-sound">–</b></li>
+        <li class="wide">Panel <b id="st-panel">–</b></li>
+        <li><b id="st-fps">–</b> fps</li>
+        <li>Bright <b id="st-bright">–</b></li>
+        <li>Timer <b id="st-timer">–</b></li>
+        <li>Pi <b id="st-temp">–</b></li>
+        <li>Up <b id="st-up">–</b></li>
+      </ul>
+    </div>
+    <p class="problem" id="problem" role="status"></p>
+  </div>
 </section>
 
-<section aria-labelledby="disp-h">
-  <h2 id="disp-h">Display</h2>
-  <form method="post" action="/mode" data-autosave>
-    <div class="seg modes" style="--n:4" role="radiogroup" aria-label="Display mode">
-      {% for value, label in [("on","Auto"),("spotify","Spotify"),("always","Always"),("off","Off")] %}
-      <label><input type="radio" name="mode" value="{{ value }}" {{ 'checked' if s.mode == value }}><span>{{ label }}</span></label>
-      {% endfor %}
-    </div>
-    <noscript><button>Save</button></noscript>
-  </form>
-  <p class="hint" id="mode-hint"></p>
+<section class="unit" aria-labelledby="disp-h">
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Display</span><span class="screw"></span></div>
+  <div class="face">
+    <h2 id="disp-h">Display</h2>
+    <form method="post" action="/mode" data-autosave>
+      <div class="seg modes" style="--n:4" role="radiogroup" aria-label="Display mode">
+        {% for value, label in [("on","Auto"),("spotify","Spotify"),("always","Always"),("off","Off")] %}
+        <label><input type="radio" name="mode" value="{{ value }}" {{ 'checked' if s.mode == value }}><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+      <noscript><button>Save</button></noscript>
+    </form>
+    <p class="hint" id="mode-hint"></p>
 
-  <h3 id="bright-l">Brightness</h3>
-  <form method="post" action="/brightness" data-autosave data-live>
-    <div class="slider">
-      <input type="range" name="brightness" min="1" max="100" value="{{ s.brightness }}" aria-labelledby="bright-l">
-      <output>{{ s.brightness }}</output>
-    </div>
-  </form>
+    <h3 id="bright-l">Brightness</h3>
+    <form method="post" action="/brightness" data-autosave data-live>
+      <div class="slider">
+        <input type="range" name="brightness" min="1" max="100" value="{{ s.brightness }}" aria-labelledby="bright-l">
+        <output>{{ s.brightness }}</output>
+      </div>
+    </form>
+  </div>
 </section>
 
-<section aria-labelledby="look-h">
-  <h2 id="look-h">Look</h2>
-  <form method="post" action="/look" data-autosave>
-    <div class="styles" role="radiogroup" aria-label="Style">
-      {% for value, label in styles %}
-      <label class="style">
-        <input type="radio" name="style" value="{{ value }}" {{ 'checked' if s.style == value }}>
-        <img src="/style/{{ value }}.png" alt="" data-style-preview>
-        <span class="name">{{ label }}</span>
-      </label>
-      {% endfor %}
-    </div>
+<section class="unit" aria-labelledby="look-h">
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Look</span><span class="screw"></span></div>
+  <div class="face">
+    <h2 id="look-h">Look</h2>
+    <form method="post" action="/look" data-autosave>
+      <div class="styles" role="radiogroup" aria-label="Style">
+        {% for value, label in styles %}
+        <label class="style">
+          <input type="radio" name="style" value="{{ value }}" {{ 'checked' if s.style == value }}>
+          <img src="/style/{{ value }}.png" alt="" data-style-preview>
+          <span class="name">{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
 
-    <h3 id="col-l">Colours</h3>
-    <div class="swatches" role="radiogroup" aria-labelledby="col-l">
-      {% for value, label, css in themes %}
-      <label class="swatch">
-        <input type="radio" name="theme" value="{{ value }}" {{ 'checked' if s.theme == value }}>
-        <span class="chip" style="background: {{ css }}"></span>
-        <span class="name">{{ label }}</span>
-      </label>
-      {% endfor %}
-    </div>
-    <p class="hint"><b>Album cover</b> takes the colours from the sleeve of the song playing (needs the Spotify login).</p>
+      <h3 id="col-l">Colours</h3>
+      <div class="swatches" role="radiogroup" aria-labelledby="col-l">
+        {% for value, label, css in themes %}
+        <label class="swatch">
+          <input type="radio" name="theme" value="{{ value }}" {{ 'checked' if s.theme == value }}>
+          <span class="chip" style="background: {{ css }}"></span>
+          <span class="name">{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="hint"><b>Album cover</b> takes the colours from the sleeve of the song playing (needs the Spotify login).</p>
 
-    <h3 id="bars-l">Bars</h3>
-    <div class="seg" style="--n:{{ bar_choices|length }}" role="radiogroup" aria-labelledby="bars-l">
-      {% for b in bar_choices %}
-      <label><input type="radio" name="bars" value="{{ b }}" {{ 'checked' if s.bars == b }}><span>{{ 'Auto' if b == 0 else b }}</span></label>
-      {% endfor %}
-    </div>
+      <h3 id="bars-l">Bars</h3>
+      <div class="seg" style="--n:{{ bar_choices|length }}" role="radiogroup" aria-labelledby="bars-l">
+        {% for b in bar_choices %}
+        <label><input type="radio" name="bars" value="{{ b }}" {{ 'checked' if s.bars == b }}><span>{{ 'Auto' if b == 0 else b }}</span></label>
+        {% endfor %}
+      </div>
 
-    <h3 id="sens-l">Sensitivity</h3>
-    <div class="slider">
-      <input type="range" name="sensitivity" min="1" max="100" value="{{ s.sensitivity }}" aria-labelledby="sens-l">
-      <output>{{ s.sensitivity }}</output>
-    </div>
-    <p class="hint">Higher makes the bars taller and busier.</p>
+      <h3 id="sens-l">Sensitivity</h3>
+      <div class="slider">
+        <input type="range" name="sensitivity" min="1" max="100" value="{{ s.sensitivity }}" aria-labelledby="sens-l">
+        <output>{{ s.sensitivity }}</output>
+      </div>
+      <p class="hint">Higher makes the bars taller and busier.</p>
 
-    <hr>
-    <label class="switch"><span>Falling peak caps</span>
-      <input type="checkbox" role="switch" name="peaks" {{ 'checked' if s.peaks }}></label>
-    <noscript><button>Save</button></noscript>
-  </form>
+      <hr>
+      <label class="switch"><span>Falling peak caps</span>
+        <input type="checkbox" role="switch" name="peaks" {{ 'checked' if s.peaks }}></label>
+      <noscript><button>Save</button></noscript>
+    </form>
+  </div>
 </section>
 
 {% if dash.share.installed %}
-<section aria-labelledby="share-h">
-  <h2 id="share-h">Sharing with Spotipi Photo</h2>
-  <form method="post" action="/share" data-autosave>
-    <div class="seg" style="--n:3" role="radiogroup" aria-label="Who uses the panel">
-      <label><input type="radio" name="panel_share" value="auto" {{ 'checked' if s.panel_share == 'auto' }}><span>Auto</span></label>
-      <label><input type="radio" name="panel_share" value="equalize" {{ 'checked' if s.panel_share == 'equalize' }}><span>Equalize</span></label>
-      <label><input type="radio" name="panel_share" value="spotipi" {{ 'checked' if s.panel_share == 'spotipi' }}><span>Spotipi Photo</span></label>
-    </div>
-    <noscript><button>Save</button></noscript>
-  </form>
-  <p class="hint">Only one of the two can light the panel at a time. <b>Auto</b> shows the
-    equaliser while music is arriving over AirPlay, and hands back to Spotipi Photo's album
-    covers and photos about 10 seconds after it stops. Play to your Sonos without ticking
-    Equalize and you get album covers instead.</p>
+<section class="unit" aria-labelledby="share-h">
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Share</span><span class="screw"></span></div>
+  <div class="face">
+    <h2 id="share-h">Sharing with Spotipi Photo</h2>
+    <form method="post" action="/share" data-autosave>
+      <div class="seg" style="--n:3" role="radiogroup" aria-label="Who uses the panel">
+        <label><input type="radio" name="panel_share" value="auto" {{ 'checked' if s.panel_share == 'auto' }}><span>Auto</span></label>
+        <label><input type="radio" name="panel_share" value="equalize" {{ 'checked' if s.panel_share == 'equalize' }}><span>Equalize</span></label>
+        <label><input type="radio" name="panel_share" value="spotipi" {{ 'checked' if s.panel_share == 'spotipi' }}><span>Spotipi Photo</span></label>
+      </div>
+      <noscript><button>Save</button></noscript>
+    </form>
+    <p class="hint">Only one of the two can light the panel at a time. <b>Auto</b> shows the
+      equaliser while music is arriving over AirPlay, and hands back to Spotipi Photo's album
+      covers and photos about 10 seconds after it stops. Play to your Sonos without ticking
+      Equalize and you get album covers instead.</p>
+  </div>
 </section>
 {% endif %}
 
-<section aria-labelledby="sound-h">
-  <h2 id="sound-h">Sound</h2>
-  <form method="post" action="/source" data-autosave>
-    <div class="seg" style="--n:2" role="radiogroup" aria-label="Sound source">
-      <label><input type="radio" name="audio_source" value="airplay" {{ 'checked' if s.audio_source == 'airplay' }}><span>AirPlay</span></label>
-      <label><input type="radio" name="audio_source" value="demo" {{ 'checked' if s.audio_source == 'demo' }}><span>Demo</span></label>
-    </div>
-    <noscript><button>Save</button></noscript>
-  </form>
-  <p class="hint">On your iPhone, open the AirPlay picker (Control Centre, or the speaker
-    icon in Spotify) and tick <b>your Sonos</b> and <b>Equalize</b>. The Pi makes no sound;
-    it only watches. <b>Demo</b> plays a built-in pattern for testing the panel.</p>
+<section class="unit" aria-labelledby="sound-h">
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Sound</span><span class="screw"></span></div>
+  <div class="face">
+    <h2 id="sound-h">Sound</h2>
+    <form method="post" action="/source" data-autosave>
+      <div class="seg" style="--n:2" role="radiogroup" aria-label="Sound source">
+        <label><input type="radio" name="audio_source" value="airplay" {{ 'checked' if s.audio_source == 'airplay' }}><span>AirPlay</span></label>
+        <label><input type="radio" name="audio_source" value="demo" {{ 'checked' if s.audio_source == 'demo' }}><span>Demo</span></label>
+      </div>
+      <noscript><button>Save</button></noscript>
+    </form>
+    <p class="hint">On your iPhone, open the AirPlay picker (Control Centre, or the speaker
+      icon in Spotify) and tick <b>your Sonos</b> and <b>Equalize</b>. The Pi makes no sound;
+      it only watches. <b>Demo</b> plays a built-in pattern for testing the panel.</p>
+  </div>
 </section>
 
-<section aria-labelledby="sched-h">
-  <h2 id="sched-h">Schedule</h2>
+<section class="unit" aria-labelledby="sched-h">
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Schedule</span><span class="screw"></span></div>
+  <div class="face">
+    <h2 id="sched-h">Schedule</h2>
 
-  <form method="post" action="/timer" data-autosave class="muted-when-off">
-    <label class="switch"><span>Screen timer</span>
-      <input type="checkbox" role="switch" name="timer_enabled" {{ 'checked' if s.timer_enabled }}></label>
-    <div class="inline">Off after <input type="number" name="timer_minutes" min="1" max="1440"
-         value="{{ s.timer_minutes }}" aria-label="Minutes"> minutes</div>
-    <p class="hint">Counts down from when you save. Choosing a display mode restarts it.</p>
-    <noscript><button>Save</button></noscript>
-  </form>
-  <hr>
+    <form method="post" action="/timer" data-autosave class="muted-when-off">
+      <label class="switch"><span>Screen timer</span>
+        <input type="checkbox" role="switch" name="timer_enabled" {{ 'checked' if s.timer_enabled }}></label>
+      <div class="inline">Off after <input type="number" name="timer_minutes" min="1" max="1440"
+           value="{{ s.timer_minutes }}" aria-label="Minutes"> minutes</div>
+      <p class="hint">Counts down from when you save. Choosing a display mode restarts it.</p>
+      <noscript><button>Save</button></noscript>
+    </form>
+    <hr>
 
-  <form method="post" action="/schedule" data-autosave class="muted-when-off">
-    <label class="switch"><span>Quiet hours</span>
-      <input type="checkbox" role="switch" name="schedule_enabled" {{ 'checked' if s.schedule_enabled }}></label>
-    <div class="inline">Off from <input type="time" name="schedule_off" value="{{ s.schedule_off }}" aria-label="Off from">
-      to <input type="time" name="schedule_on" value="{{ s.schedule_on }}" aria-label="Back on at"></div>
-    <noscript><button>Save</button></noscript>
-  </form>
-  <hr>
+    <form method="post" action="/schedule" data-autosave class="muted-when-off">
+      <label class="switch"><span>Quiet hours</span>
+        <input type="checkbox" role="switch" name="schedule_enabled" {{ 'checked' if s.schedule_enabled }}></label>
+      <div class="inline">Off from <input type="time" name="schedule_off" value="{{ s.schedule_off }}" aria-label="Off from">
+        to <input type="time" name="schedule_on" value="{{ s.schedule_on }}" aria-label="Back on at"></div>
+      <noscript><button>Save</button></noscript>
+    </form>
+    <hr>
 
-  <form method="post" action="/dimmer" data-autosave class="muted-when-off">
-    <label class="switch"><span>Dim after sunset</span>
-      <input type="checkbox" role="switch" name="dimmer_enabled" {{ 'checked' if s.dimmer_enabled }}></label>
-    <div class="inline">Night brightness <input type="number" name="dim_brightness" min="1" max="100"
-         value="{{ s.dim_brightness }}" aria-label="Night brightness"> of 100</div>
-    <div class="inline">Lat <input type="number" step="0.0001" name="latitude" value="{{ s.latitude }}" aria-label="Latitude">
-      Lon <input type="number" step="0.0001" name="longitude" value="{{ s.longitude }}" aria-label="Longitude"></div>
-    <p class="hint">Sunrise and sunset are worked out on the Pi from these coordinates.</p>
-    <noscript><button>Save</button></noscript>
-  </form>
+    <form method="post" action="/dimmer" data-autosave class="muted-when-off">
+      <label class="switch"><span>Dim after sunset</span>
+        <input type="checkbox" role="switch" name="dimmer_enabled" {{ 'checked' if s.dimmer_enabled }}></label>
+      <div class="inline">Night brightness <input type="number" name="dim_brightness" min="1" max="100"
+           value="{{ s.dim_brightness }}" aria-label="Night brightness"> of 100</div>
+      <div class="inline">Lat <input type="number" step="0.0001" name="latitude" value="{{ s.latitude }}" aria-label="Latitude">
+        Lon <input type="number" step="0.0001" name="longitude" value="{{ s.longitude }}" aria-label="Longitude"></div>
+      <p class="hint">Sunrise and sunset are worked out on the Pi from these coordinates.</p>
+      <noscript><button>Save</button></noscript>
+    </form>
+  </div>
 </section>
 
 </main>
@@ -396,6 +533,11 @@ document.querySelectorAll("form[data-autosave]").forEach(form => {
     });
   });
 });
+// the control panel's own look changes at once, before the Pi has saved it
+document.querySelectorAll("input[name=ui]").forEach(i => i.addEventListener("change", () => {
+  document.documentElement.dataset.ui = i.value;
+  document.querySelector("meta[name=theme-color]").content = i.value === "player" ? "#1b1e22" : "#0f1012";
+}));
 function showModeHint() {
   const m = document.querySelector("input[name=mode]:checked");
   $("mode-hint").innerHTML = MODE_HINTS[m ? m.value : "on"];

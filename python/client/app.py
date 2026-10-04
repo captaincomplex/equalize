@@ -186,6 +186,19 @@ def set_look():
     return done()
 
 
+UI_SKINS = ("rack", "player")
+
+
+@app.route("/ui", methods=["POST"])
+def set_ui():
+    """Which skin the control panel wears. The LED panel is unaffected."""
+    state = read_state()
+    skin = request.form.get("ui", "rack")
+    state["ui"] = skin if skin in UI_SKINS else "rack"
+    write_state(state)
+    return done()
+
+
 @app.route("/source", methods=["POST"])
 def set_source():
     src = request.form.get("audio_source", "airplay")
