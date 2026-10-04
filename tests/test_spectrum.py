@@ -115,3 +115,22 @@ def test_album_palette_rejects_black_and_white_covers():
     assert album_palette(grey, 16) is None
     red = Image.new("RGB", (64, 64), (200, 30, 30))
     assert album_palette(red, 16).shape == (16, 3)
+
+
+def test_airplay_reader_keeps_bytes_split_between_reads():
+    # A pipe read can stop mid-frame. Dropping the leftover bytes used to
+    # shift every later sample, turning music into hiss that filled the bars.
+    from audio_source import to_mono
+    rng = np.random.default_rng(3)
+    stereo = (np.sin(np.arange(4800) * 0.05)[:, None] * [12000, 8000]).astype("<i2")
+    raw = stereo.tobytes()
+    out, rest, i = [], b"", 0
+    while i < len(raw):
+        step = int(rng.integers(1, 700))           # odd sizes, like a real pipe
+        mono, rest = to_mono(rest + raw[i:i + step])
+        out.append(mono)
+        i += step
+    got = np.concatenate(out)
+    want = stereo.mean(axis=1) / 32768.0
+    assert len(got) == len(want)
+    assert np.allclose(got, want, atol=1e-6)

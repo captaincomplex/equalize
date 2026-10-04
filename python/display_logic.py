@@ -148,3 +148,27 @@ def compute_effective(state, has_sound, spotify_playing, now=None, now_epoch=Non
     if mode == "spotify":
         return "bars" if (has_sound and spotify_playing) else "off"
     return "bars" if has_sound else "off"
+
+
+# ---------------------------------------------------------------- panel shape
+ROTATIONS = (0, 90, 180, 270)
+
+
+def panel_geometry(d):
+    """(width, height, rotate) of the picture, from rgb_options.ini's settings.
+
+    The panels' own size is columns x chain_length wide and rows x parallel
+    high. `rotate` turns the whole picture, so panels mounted on their side
+    work: a 64x32 turned 90 degrees is 32 wide and 64 tall; two chained 64x64s
+    (128x64) turned 90 degrees are 64 wide and 128 tall.
+    """
+    w = int(d["columns"]) * int(d.get("chain_length", 1))
+    h = int(d["rows"]) * int(d.get("parallel", 1))
+    try:
+        rotate = int(d.get("rotate", 0))
+    except ValueError:
+        rotate = 0
+    rotate = rotate if rotate in ROTATIONS else 0
+    if rotate in (90, 270):
+        w, h = h, w
+    return w, h, rotate

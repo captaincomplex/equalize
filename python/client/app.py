@@ -21,6 +21,7 @@ sys.dont_write_bytecode = True      # runs as root; keep __pycache__ out
 from flask import Flask, Response, jsonify, redirect, render_template, request, send_file, url_for
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from display_logic import panel_geometry  # noqa: E402
 from render import THEMES, auto_bars, colour_field, peak_colour_for, theme_css  # noqa: E402
 from styles import STYLE_LABELS, STYLES, draw, sample_levels  # noqa: E402
 from state import PREVIEW_PATH, read_state, read_status, reset_timer, write_state  # noqa: E402
@@ -31,7 +32,10 @@ VALID_MODES = {"on", "spotify", "always", "off"}
 VALID_SOURCES = {"airplay", "demo"}
 BAR_CHOICES = [0, 8, 16, 32, 64]
 THEME_LABELS = {"vapor": "Vapor", "classic": "Classic", "rainbow": "Rainbow",
-                "ice": "Ice", "sunset": "Sunset", "album": "Album cover"}
+                "ice": "Ice", "sunset": "Sunset", "fire": "Fire", "ocean": "Ocean",
+                "forest": "Forest", "aurora": "Aurora", "amber": "Amber",
+                "mono": "Warm white", "pastel": "Pastel", "thermal": "Thermal",
+                "album": "Album cover"}
 VALID_SHARE = {"auto", "equalize", "spotipi"}
 CONFIG_INI = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "rgb_options.ini"))
 PANEL_SWITCH = "/usr/local/bin/equalize-panel"
@@ -43,8 +47,8 @@ def panel_size():
     try:
         cfg = configparser.ConfigParser()
         cfg.read(CONFIG_INI)
-        d = cfg["DEFAULT"]
-        return (int(d["columns"]) * int(d.get("chain_length", 1)), int(d["rows"]) * int(d.get("parallel", 1)))
+        w, h, _ = panel_geometry(cfg["DEFAULT"])
+        return w, h
     except Exception:
         return 64, 64
 
@@ -130,7 +134,8 @@ def style_preview(name):
     theme = state.get("theme", "vapor")
     theme = "rainbow" if theme == "album" else theme if theme in THEMES else "vapor"
     levels, peaks = sample_levels(n)
-    img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme))
+    img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme),
+               still=True)
     buf = io.BytesIO()
     img.save(buf, "PNG")
     return Response(buf.getvalue(), mimetype="image/png", headers={"Cache-Control": "no-store"})

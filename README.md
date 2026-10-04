@@ -5,6 +5,8 @@
 | Sunset (default) | Disc | Meter | Equals |
 |:-:|:-:|:-:|:-:|
 | ![Sunset](docs/style-sunset.gif) | ![Disc](docs/style-disc.gif) | ![Meter](docs/style-meter.gif) | ![Equals](docs/style-equals.gif) |
+| **Mirror** (Ocean) | **Wave** (Aurora) | **Waterfall** (Thermal) | **Needle** (Amber) |
+| ![Mirror](docs/style-mirror.gif) | ![Wave](docs/style-wave.gif) | ![Waterfall](docs/style-waterfall.gif) | ![Needle](docs/style-vu.gif) |
 
 A graphic equaliser for an RGB LED matrix on a Raspberry Pi. Play music on your
 Sonos from your iPhone, and the panel on the wall bounces along to it: bass on
@@ -17,7 +19,7 @@ your Sonos gets, perfectly in time, and draws it.
 
 **Status:** first version, tested off-Pi (see *What has and hasn't been tested*).
 **Stack:** Raspberry Pi · rpi-rgb-led-matrix · shairport-sync (AirPlay 2) · Python · numpy · Flask
-**Panels:** 64×32, 64×64, 128×64 (two 64×64 side by side).
+**Panels:** 64×32, 64×64, 128×64 (two 64×64 side by side), and upright: 32×64 (a 64×32 on its side) and 64×128 (two 64×64 one above the other). Upright panels are set with `rotate` in `config/rgb_options.ini`.
 
 Part of the [xpdr.aero](https://github.com/captaincomplex/captaincomplex.github.io) projects.
 Grown from Spotipi Photo, whose display loop, web panel, timer, quiet hours,
@@ -59,15 +61,24 @@ the music tile, or the speaker icon in Spotify) and tick **your Sonos** *and*
 Works from an iPhone, iPad, Mac or Apple TV, with any app. The Pi makes no sound.
 
 ### Styles
-Four ways to draw the music, each based on a logo design, plus plain bars:
+Eight ways to draw the music, plus plain bars. The first four come from the
+logo designs:
 - **Sunset** (default): bars standing on a horizon, the sun's stripes cut through
   them, a neon grid floor below.
 - **Disc**: the spectrum as a ring of rays around a small striped sun.
 - **Meter**: a hi-fi LED meter, stacked segments with the unlit ones faintly
   glowing and a lit segment marking each peak.
 - **Equals**: bars rising from a centre line with their reflection below.
+- **Mirror**: bars growing up and down from the middle of the panel at once.
+- **Wave**: one smooth line through the tops of the bars, softly filled below,
+  like a range of hills moving with the music.
+- **Waterfall**: the last few seconds of music scrolling down the panel, newest
+  at the top, brighter where it was louder, so you can see the beat.
+- **Needle**: an old hi-fi's needle meter. On a wide panel there are two:
+  bass on the left, treble on the right.
 
-Every style works with every colour theme and every panel size. Pick one in
+Every style works with every colour theme and every panel size. (Equals keeps
+its cyan reflection with *vapor*; with other colours it reflects their own.) Pick one in
 the web panel, which shows a live preview of each.
 
 ### Display modes (web panel)
@@ -78,8 +89,9 @@ the web panel, which shows a live preview of each.
 - **Off**.
 
 Plus: live **brightness**, **colours** (*vapor*, the logo's sunset with cyan
-peak caps and the default; classic, rainbow, ice, sunset; and *album*, which
-takes the bar colours from the cover of the song playing),
+peak caps and the default; classic, rainbow, ice, sunset, fire, ocean, forest,
+aurora, amber, warm white, pastel and thermal; and *album*, which takes the bar
+colours from the cover of the song playing, and needs the Spotify login),
 **number of bars**, **sensitivity**, **peak caps**, a **screen timer**, **quiet
 hours** and a **sunrise/sunset dimmer**, all as in Spotipi Photo. A live
 dashboard shows a snapshot of the panel, the song, and the frame rate.

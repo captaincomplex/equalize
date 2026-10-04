@@ -33,6 +33,22 @@ LOOP_RATE = 48000
 LOOP_CHANNELS = 2
 
 
+FRAME_BYTES = LOOP_CHANNELS * 2        # one moment of sound: 2 bytes per ear
+
+
+def to_mono(data):
+    """Whole frames of 16-bit stereo -> mono floats, plus the bytes left over.
+
+    A read from the pipe can stop part-way through a frame. Those bytes must
+    be kept for the next read: dropping them shifts every later sample by a
+    byte or two, which turns music into loud hiss and fills every bar.
+    """
+    usable = len(data) // FRAME_BYTES * FRAME_BYTES
+    pcm = np.frombuffer(data[:usable], dtype="<i2")
+    mono = pcm.reshape(-1, LOOP_CHANNELS).mean(axis=1) / 32768.0
+    return mono.astype(np.float32), data[usable:]
+
+
 class _Ring:
     """Fixed-size buffer that always holds the newest samples."""
 
@@ -81,15 +97,16 @@ class AirPlaySource:
 
     def _reader(self):
         chunk = self.CHUNK_FRAMES * LOOP_CHANNELS * 2
+        rest = b""
         while not self._stop:
             data = self.proc.stdout.read(chunk)
             if not data:
                 err = self.proc.stderr.read().decode(errors="replace").strip()
                 self.error = "loopback closed: %s" % (err or "arecord exited")
                 return
-            pcm = np.frombuffer(data[: len(data) // 4 * 4], dtype="<i2")
-            mono = pcm.reshape(-1, LOOP_CHANNELS).mean(axis=1) / 32768.0
-            self.ring.push(mono.astype(np.float32))
+            mono, rest = to_mono(rest + data)
+            if len(mono):
+                self.ring.push(mono)
             self.last_data = time.time()
 
     def read(self, n):

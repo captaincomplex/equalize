@@ -10,7 +10,9 @@ import colorsys
 import numpy as np
 from PIL import Image
 
-THEMES = ["vapor", "classic", "rainbow", "ice", "sunset", "album"]
+THEMES = ["vapor", "classic", "rainbow", "ice", "sunset",
+          "fire", "ocean", "forest", "aurora", "amber", "mono", "pastel", "thermal",
+          "album"]
 
 # Colour stops from the bottom of the panel (0.0) to the top (1.0).
 _GRADIENTS = {
@@ -19,6 +21,23 @@ _GRADIENTS = {
     "classic": [(0.0, (0, 200, 40)), (0.55, (170, 220, 0)), (0.78, (255, 170, 0)), (1.0, (255, 20, 0))],
     "ice":     [(0.0, (0, 30, 160)), (0.5, (0, 150, 255)), (0.85, (120, 230, 255)), (1.0, (255, 255, 255))],
     "sunset":  [(0.0, (90, 0, 140)), (0.45, (230, 30, 90)), (0.8, (255, 130, 0)), (1.0, (255, 230, 60))],
+    # embers at the bottom, white-hot at the top
+    "fire":    [(0.0, (120, 0, 0)), (0.4, (230, 40, 0)), (0.75, (255, 150, 0)), (1.0, (255, 245, 200))],
+    # deep water up to surf
+    "ocean":   [(0.0, (0, 30, 90)), (0.45, (0, 110, 160)), (0.8, (0, 200, 190)), (1.0, (200, 255, 240))],
+    # moss to new leaves to sunlight
+    "forest":  [(0.0, (0, 70, 20)), (0.5, (30, 160, 40)), (0.85, (160, 230, 40)), (1.0, (255, 240, 120))],
+    # the northern lights: green low down, violet at the top
+    "aurora":  [(0.0, (0, 140, 70)), (0.45, (0, 220, 160)), (0.75, (60, 120, 255)), (1.0, (190, 80, 255))],
+    # one colour, like the glowing display of an old hi-fi
+    "amber":   [(0.0, (120, 45, 0)), (0.6, (255, 140, 0)), (1.0, (255, 200, 80))],
+    # warm white, brightening with height: calm, goes with any room
+    "mono":    [(0.0, (70, 60, 50)), (0.6, (200, 185, 165)), (1.0, (255, 250, 240))],
+    # soft sweet-shop colours
+    "pastel":  [(0.0, (120, 170, 255)), (0.35, (190, 140, 255)), (0.7, (255, 150, 200)), (1.0, (255, 230, 170))],
+    # a heat camera: cold blue up through red to white-hot
+    "thermal": [(0.0, (20, 0, 120)), (0.3, (150, 0, 160)), (0.55, (240, 30, 40)),
+                (0.8, (255, 170, 0)), (1.0, (255, 255, 230))],
 }
 # Peak caps are normally a paler version of the bar's top colour; some themes
 # use a contrasting accent instead (vapor: the logo's neon-grid cyan).

@@ -27,5 +27,8 @@
       AirPlay 2) for Android phones and guests, and so the phone can leave the
       house. Researched 28 Sep 2026: OwnTone's fifo output is timed to match
       its AirPlay outputs; librespot 0.8.0 needs Premium.
-- [ ] More styles: mirrored bars, a spectrum "waterfall", a VU meter.
+- [x] More styles: Mirror, Wave, Waterfall, Needle (4 Oct 2026), and eight more
+      colour themes.
+- [ ] Look at the new styles on the real LEDs: the Needle's dim dial face and
+      the Wave's dotted peak line may need brightness tweaks.
 - [ ] Auto-updater (as Spotipi Photo has).
