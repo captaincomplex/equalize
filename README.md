@@ -171,6 +171,13 @@ ALSA loopback; AirPlay grouping with a Sonos; how closely the bars line up with
 the Sonos by eye (the timing nudge in `config/shairport-sync.conf` is an
 estimate). See `TODO.md`.
 
+## Licence
+
+Free and open source under the [MIT licence](LICENSE). Equalize grew out of
+Spotipi Photo, which is built on [Spotipi](https://github.com/ryanwa18/spotipi)
+by Ryan Ward (MIT, copyright 2020). His copyright notice is kept in `LICENSE`,
+as that licence requires.
+
 ## Troubleshooting
 - **Equalize isn't in the AirPlay picker**: `sudo systemctl status shairport-sync nqptp`.
   The Pi and the phone must be on the same network.
