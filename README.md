@@ -21,7 +21,7 @@ your Sonos gets, perfectly in time, and draws it.
 
 **Status:** first version, tested off-Pi (see *What has and hasn't been tested*).
 **Stack:** Raspberry Pi · rpi-rgb-led-matrix · shairport-sync (AirPlay 2) · Python · numpy · Flask
-**Panels:** 64×32, 64×64, 128×64 (two 64×64 side by side), and upright: 32×64 (a 64×32 on its side) and 64×128 (two 64×64 one above the other). Upright panels are set with `rotate` in `config/rgb_options.ini`.
+**Panels:** 64×32, 64×64, 128×64 (two 64×64 side by side), and upright: 32×64 (a 64×32 on its side) and 64×128 (two 64×64 one above the other). Upright panels are set with `rotate` in `config/rgb_options.local.ini` (see the notes in `rgb_options.ini`).
 
 Part of the [xpdr.aero](https://github.com/captaincomplex/captaincomplex.github.io) projects.
 Grown from Spotipi Photo, whose display loop, web panel, timer, quiet hours,
@@ -194,7 +194,7 @@ equalize/
 ├── install_pi.sh             # Pi installer
 ├── generate-token.sh         # optional Spotify login
 ├── config/
-│   ├── rgb_options.ini       # panel size and wiring
+│   ├── rgb_options.ini       # panel size and wiring (defaults; your changes go in rgb_options.local.ini)
 │   ├── shairport-sync.conf   # the AirPlay receiver's settings
 │   ├── equalize.service      # display service
 │   ├── equalize-web.service  # web panel service
@@ -248,5 +248,5 @@ as that licence requires.
 - **Bars early or late against the Sonos**: change
   `audio_backend_latency_offset_in_seconds` in `/etc/shairport-sync.conf`
   (negative = earlier), then `sudo systemctl restart shairport-sync`.
-- **Panel flickers**: raise `gpio_slowdown` in `config/rgb_options.ini`, restart
+- **Panel flickers**: raise `gpio_slowdown` in `config/rgb_options.local.ini`, restart
   `equalize`. Check `dtparam=audio=off` is set.

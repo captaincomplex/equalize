@@ -200,9 +200,15 @@ if [ -e /etc/systemd/system/spotipi.service ]; then
 else
   SHARED=0
 fi
-if ss -ltn 2>/dev/null | grep -q ':80 ' && ! systemctl is-active --quiet equalize-web; then
+# Spotipi Photo's own control panel always has port 80, so with it here
+# Equalize's is on 8080 -- every time, including re-runs (an earlier version
+# moved it back to 80 on a re-run, where it could never start).
+if [ "$SHARED" = "1" ]; then
   PORT=8080
-  note "Port 80 is taken (probably Spotipi Photo's panel): using 8080."
+  note "Spotipi Photo's control panel has port 80: Equalize's is on 8080."
+elif ss -ltn 2>/dev/null | grep -q ':80 ' && ! systemctl is-active --quiet equalize-web; then
+  PORT=8080
+  note "Port 80 is taken by something else: using 8080."
 fi
 
 # ---------------------------------------------------------------------------

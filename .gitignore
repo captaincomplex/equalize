@@ -8,6 +8,8 @@ secrets*
 
 # Live settings, written by the web panel on the Pi
 config/state.json
+# This Pi's own panel settings (read over rgb_options.ini; updates never touch it)
+config/rgb_options.local.ini
 
 # Python
 __pycache__/

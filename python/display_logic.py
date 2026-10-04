@@ -172,3 +172,17 @@ def panel_geometry(d):
     if rotate in (90, 270):
         w, h = h, w
     return w, h, rotate
+
+
+def read_panel_config(paths):
+    """The [DEFAULT] settings from rgb_options.ini, with rgb_options.local.ini
+    (this Pi's own changes, never touched by an update) read over the top."""
+    import configparser
+    cfg = configparser.ConfigParser()
+    cfg.read(paths)
+    return cfg["DEFAULT"]
+
+
+def panel_config_paths(config_dir):
+    import os
+    return [os.path.join(config_dir, "rgb_options.ini"), os.path.join(config_dir, "rgb_options.local.ini")]
