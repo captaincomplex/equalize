@@ -14,6 +14,13 @@ styles.py -- the four ways Equalize can draw the music, one per logo.
             at the top, brighter where it's louder -- you can see the beat
     vu      a needle meter like an old hi-fi; on a wide panel, two of them,
             bass on the left and treble on the right
+    analyser  Winamp's spectrum analyser: thin bars, colours fixed by height,
+            grey peak dots, on a faint grid
+    scope   Winamp's oscilloscope: the sound wave itself, held steady
+    trails  every picture zooms out and fades behind the next, like
+            MilkDrop or Windows Media Player
+    plasma  flowing colour pushed around by the bass, like Media Player's
+            "Ambience"
     bars    the plain equaliser from render.py
 
 Every style takes the same inputs -- a level and a peak (0..1) per bar and a
@@ -30,10 +37,13 @@ from PIL import Image, ImageDraw
 
 from render import IDLE_FLOOR, bar_layout, render
 
-STYLES = ["sunset", "disc", "meter", "equals", "mirror", "wave", "waterfall", "vu", "bars"]
+STYLES = ["sunset", "disc", "meter", "equals", "mirror", "wave", "waterfall", "vu",
+          "analyser", "scope", "trails", "plasma", "bars"]
 STYLE_LABELS = {"sunset": "Sunset", "disc": "Disc", "meter": "Meter",
                 "equals": "Equals", "mirror": "Mirror", "wave": "Wave",
-                "waterfall": "Waterfall", "vu": "Needle", "bars": "Plain bars"}
+                "waterfall": "Waterfall", "vu": "Needle", "analyser": "Analyser",
+                "scope": "Scope", "trails": "Trails", "plasma": "Plasma",
+                "bars": "Plain bars"}
 CYAN = np.array([45, 226, 245], dtype=float)
 DEEP_BLUE = np.array([27, 58, 143], dtype=float)
 SUN_STOPS = [(0.0, (169, 75, 255)), (0.35, (255, 95, 200)), (0.7, (255, 157, 122)), (1.0, (255, 246, 160))]
@@ -430,18 +440,185 @@ def draw_vu(levels, peaks, width, height, field, peak_colour, show_peaks=True):
     return img
 
 
-def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peaks=True, still=False):
+# ---------------------------------------------------------------- analyser
+@lru_cache(maxsize=8)
+def _analyser_grid(width, height):
+    """The faint dot grid behind Winamp's analyser."""
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+    img[1::2, ::2] = 14
+    return img
+
+
+def draw_analyser(levels, peaks, width, height, field, peak_colour, show_peaks=True):
+    """Winamp's analyser: thin bars with a one-pixel gap, each row a fixed
+    colour (so the top of a loud bar is always the hot colour), and a grey
+    dot hanging at each peak."""
+    img = _analyser_grid(width, height).copy()
+    n = len(levels)
+    bar_w, gap, left = bar_layout(width, n)
+    rows = field[np.linspace(0, len(field) - 1, height).round().astype(int)]   # bottom first
+    for i in range(n):
+        x0 = left + i * (bar_w + gap)
+        x1 = x0 + bar_w
+        h = int(round(float(levels[i]) * height))
+        if h > 0:
+            img[height - h:, x0:x1] = rows[:h, i][::-1][:, None, :].astype(np.uint8)
+        if show_peaks:
+            p = int(round(float(peaks[i]) * height))
+            if p > h and p > 0:
+                img[height - p, x0:x1] = peak_colour if peak_colour is not None else (150, 150, 150)
+    return Image.fromarray(img, "RGB")
+
+
+# ---------------------------------------------------------------- scope
+_scope_gain = {"peak": 0.05}
+
+
+def _made_up_wave(levels, n):
+    """A wave built from the bar levels, for when there's no real sound to
+    hand (the style picker's still picture)."""
+    t = np.linspace(0, 2 * math.pi, n)
+    w = np.zeros(n)
+    for i, lv in enumerate(np.asarray(levels, dtype=float)):
+        w += lv * np.sin(t * (1 + i * 1.7) + i) / (1 + i * 0.4)
+    return w
+
+
+def draw_scope(levels, peaks, width, height, field, peak_colour, show_peaks=True, wave=None):
+    """The sound wave itself, as on Winamp's oscilloscope. It starts each
+    picture where the wave crosses zero going up (as a real scope's trigger
+    does), so a steady note stands still instead of jittering."""
+    if wave is None or len(wave) < width * 2:
+        w = _made_up_wave(levels, width)
+    else:
+        x = np.asarray(wave, dtype=float)
+        x = x - x.mean()
+        span = min(len(x) // 2, width * 6)                       # about 6 ms at 48 kHz on a 64-wide panel
+        start = 0
+        search = x[: len(x) - span]
+        ups = np.nonzero((search[:-1] < 0) & (search[1:] >= 0))[0]
+        if len(ups):
+            start = int(ups[-1])
+        w = x[start:start + span]
+        w = w[np.linspace(0, len(w) - 1, width).round().astype(int)]
+    # slow automatic gain, so quiet music still fills the screen
+    peak = float(np.max(np.abs(w))) if len(w) else 0.0
+    _scope_gain["peak"] = max(peak, _scope_gain["peak"] * 0.97, 0.02)
+    w = np.clip(w / _scope_gain["peak"], -1, 1)
+
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+    mid = (height - 1) / 2
+    img[int(round(mid)), ::2] = 18                               # a dotted centre line
+    ys = np.round(mid - w * mid * 0.92).astype(int)
+    n = field.shape[1]
+    for x in range(width):
+        i = min(n - 1, x * n // width)
+        a, b = (ys[x], ys[x]) if x == 0 else sorted((ys[x - 1], ys[x]))
+        loud = abs(float(w[x]))
+        c = field[int((0.45 + 0.55 * loud) * (len(field) - 1)), i]     # the bright half of the colours
+        c = np.minimum(255, c * 1.1 + 30).astype(np.uint8)
+        img[a:b + 1, x] = c
+        if height >= 48:                                         # two LEDs thick on a tall panel
+            img[min(height - 1, b + 1), x] = c
+    return Image.fromarray(img, "RGB")
+
+
+# ---------------------------------------------------------------- trails
+_trails = {}
+
+
+def _trail_core(levels, peaks, width, height, field, peak_colour):
+    """This moment's mirrored bars, drawn at 60% size in the middle."""
+    cw, ch = max(4, int(width * 0.6)), max(4, int(height * 0.6))
+    core = draw_mirror(levels, peaks, cw, ch, field, peak_colour, False)
+    out = np.zeros((height, width, 3), dtype=float)
+    ox, oy = (width - cw) // 2, (height - ch) // 2
+    out[oy:oy + ch, ox:ox + cw] = np.asarray(core, dtype=float)
+    return out
+
+
+def _grow(img, s, fade):
+    """Enlarge a picture about its middle by s, cropped back to size, faded."""
+    h, w = img.shape[:2]
+    big = Image.fromarray(img.astype(np.uint8)).resize((int(w * s), int(h * s)), Image.BILINEAR)
+    ox, oy = (big.width - w) // 2, (big.height - h) // 2
+    return np.asarray(big.crop((ox, oy, ox + w, oy + h)), dtype=float) * fade
+
+
+def draw_trails(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False):
+    """Every picture grows a little and fades behind the next, so the music
+    flies out of the middle of the panel towards you, like MilkDrop or
+    Windows Media Player."""
+    now = _trail_core(levels, peaks, width, height, field, peak_colour)
+    if still:                                                    # a made-up history for the still
+        acc = now.copy()
+        for k in range(1, 9):
+            acc = np.maximum(acc, _grow(now, 1 + 0.08 * k, 0.82 ** k))
+        return Image.fromarray(acc.astype(np.uint8), "RGB")
+    key = (width, height)
+    prev = _trails.get(key)
+    if prev is None:
+        _trails.clear()
+        prev = np.zeros_like(now)
+    out = np.maximum(_grow(prev, 1.06, 0.86), now)
+    _trails[key] = out
+    return Image.fromarray(out.astype(np.uint8), "RGB")
+
+
+# ---------------------------------------------------------------- plasma
+@lru_cache(maxsize=8)
+def _plasma_grid(width, height):
+    y, x = np.mgrid[0:height, 0:width].astype(float)
+    cx, cy = (width - 1) / 2, (height - 1) / 2
+    r = np.hypot(x - cx, y - cy) / max(width, height)
+    return x / max(width, height), y / max(width, height), r
+
+
+def draw_plasma(levels, peaks, width, height, field, peak_colour, show_peaks=True, t=None):
+    """Slow flowing colour; the bass pushes ripples out from the middle and
+    the overall loudness sets how bright it is."""
+    x, y, r = _plasma_grid(width, height)
+    if t is None:
+        import time
+        t = time.monotonic()
+    lv = np.asarray(levels, dtype=float)
+    q = max(1, len(lv) // 4)
+    bass, treble = float(lv[:q].mean()), float(lv[-q:].mean())
+    loud = float(np.sort(lv)[len(lv) // 2:].mean()) if len(lv) else 0.0
+    v = (np.sin(x * 7 + t * 0.7)
+         + np.sin((y * 6 - t * 0.5) + np.sin(x * 3 + t * 0.3))
+         + np.sin(r * (14 + 10 * bass) - t * (2 + 4 * bass)) * (0.6 + bass)
+         + np.sin((x + y) * (5 + 8 * treble) + t))
+    v = (v - v.min()) / max(1e-6, v.max() - v.min())             # 0..1
+    v = v ** 1.6                                                 # deeper lows, so the bright folds stand out
+    # colour from the theme's ramp, using the middle bar for per-bar themes
+    col = field[:, field.shape[1] // 2]
+    idx = (v * (len(col) - 1)).astype(int)
+    img = col[idx] * (0.08 + 0.92 * v)[..., None] * (0.3 + 0.7 * min(1.0, loud * 1.2))
+    return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGB")
+
+
+def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peaks=True, still=False,
+         wave=None):
     """Draw one frame in the named style. Unknown names fall back to sunset.
     still=True is for a single picture (the web panel's style picker), where
-    the waterfall has no real history to show and makes one up."""
+    the waterfall and trails have no real history to show and make one up.
+    wave is the raw sound (the scope draws it; the others ignore it)."""
     if style == "bars":
         return render(levels, peaks, width, height, show_peaks=show_peaks,
                       field=field, peak_colour=peak_colour)
     if style == "waterfall":
         return draw_waterfall(levels, peaks, width, height, field, peak_colour, show_peaks, still)
+    if style == "trails":
+        return draw_trails(levels, peaks, width, height, field, peak_colour, show_peaks, still)
+    if style == "scope":
+        return draw_scope(levels, peaks, width, height, field, peak_colour, show_peaks, wave)
+    if style == "plasma":
+        return draw_plasma(levels, peaks, width, height, field, peak_colour, show_peaks,
+                           t=12.0 if still else None)
     fn = {"sunset": draw_sunset, "disc": draw_disc, "meter": draw_meter,
           "equals": draw_equals, "mirror": draw_mirror, "wave": draw_wave,
-          "vu": draw_vu}.get(style, draw_sunset)
+          "vu": draw_vu, "analyser": draw_analyser}.get(style, draw_sunset)
     return fn(levels, peaks, width, height, field, peak_colour, show_peaks)
 
 

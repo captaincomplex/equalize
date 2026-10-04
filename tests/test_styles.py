@@ -153,3 +153,39 @@ def test_needle_fits_and_is_centred(w, h):
 def test_panel_geometry(cfg, want):
     from display_logic import panel_geometry
     assert panel_geometry(cfg) == want
+
+
+def test_scope_holds_a_steady_note_still():
+    # The scope starts each picture where the wave crosses zero going up, so
+    # a steady note looks the same from one picture to the next.
+    n = auto_bars(64)
+    f = colour_field("ocean", n, 64)
+    sr, hz = 48000, 440
+    pics = []
+    for start in (0, 1234, 5555):                    # three moments, out of step with the note
+        t = (np.arange(2048) + start) / sr
+        pics.append(np.asarray(draw("scope", np.full(n, .5), np.full(n, .5), 64, 64, f, None,
+                                    wave=np.sin(2 * np.pi * hz * t))))
+    lit = [p.sum(axis=2) > 0 for p in pics]
+    assert (lit[0] == lit[1]).mean() > 0.98 and (lit[0] == lit[2]).mean() > 0.98
+
+
+def test_trails_remember_and_fade():
+    from styles import _trails
+    _trails.clear()
+    n = auto_bars(64)
+    f = colour_field("fire", n, 64)
+    loud, quiet = np.full(n, 0.9), np.zeros(n)
+    first = np.asarray(draw("trails", loud, loud, 64, 64, f, None)).sum()
+    after = [np.asarray(draw("trails", quiet, quiet, 64, 64, f, None)).sum() for _ in range(8)]
+    assert 0 < after[0] < first                       # the loud moment lingers...
+    assert after[-1] < after[0]                       # ...and fades away
+
+
+def test_plasma_is_brighter_when_louder():
+    from styles import draw_plasma
+    n = auto_bars(64)
+    f = colour_field("aurora", n, 64)
+    quiet = np.asarray(draw_plasma(np.full(n, .05), None, 64, 64, f, None, t=3.0)).sum()
+    loud = np.asarray(draw_plasma(np.full(n, .9), None, 64, 64, f, None, t=3.0)).sum()
+    assert loud > quiet * 1.5
