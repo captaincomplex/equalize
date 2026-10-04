@@ -189,3 +189,15 @@ def test_plasma_is_brighter_when_louder():
     quiet = np.asarray(draw_plasma(np.full(n, .05), None, 64, 64, f, None, t=3.0)).sum()
     loud = np.asarray(draw_plasma(np.full(n, .9), None, 64, 64, f, None, t=3.0)).sum()
     assert loud > quiet * 1.5
+
+
+def test_this_pis_own_settings_win(tmp_path):
+    from display_logic import panel_config_paths, read_panel_config
+    (tmp_path / "rgb_options.ini").write_text(
+        "[DEFAULT]\nrows = 64\ncolumns = 64\nhardware_mapping = adafruit-hat\ngpio_slowdown = 2\n")
+    d = read_panel_config(panel_config_paths(str(tmp_path)))
+    assert d["hardware_mapping"] == "adafruit-hat"                 # no local file: the defaults
+    (tmp_path / "rgb_options.local.ini").write_text(
+        "[DEFAULT]\nhardware_mapping = adafruit-hat-pwm\ngpio_slowdown = 4\n")
+    d = read_panel_config(panel_config_paths(str(tmp_path)))
+    assert (d["hardware_mapping"], d["gpio_slowdown"], d["rows"]) == ("adafruit-hat-pwm", "4", "64")

@@ -9,7 +9,6 @@ Port 80 by default; set EQUALIZE_PORT to change it (install_pi.sh picks 8080
 if Spotipi Photo's panel already has 80 on the same Pi).
 """
 
-import configparser
 import io
 import os
 import subprocess
@@ -21,7 +20,7 @@ sys.dont_write_bytecode = True      # runs as root; keep __pycache__ out
 from flask import Flask, Response, jsonify, redirect, render_template, request, send_file, url_for
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from display_logic import panel_geometry  # noqa: E402
+from display_logic import panel_config_paths, panel_geometry, read_panel_config  # noqa: E402
 from render import THEMES, auto_bars, colour_field, peak_colour_for, theme_css  # noqa: E402
 from styles import STYLE_LABELS, STYLES, draw, sample_levels  # noqa: E402
 from state import PREVIEW_PATH, read_state, read_status, reset_timer, write_state  # noqa: E402
@@ -45,9 +44,7 @@ SPOTIPI_UNIT = os.environ.get("SPOTIPI_UNIT_FILE", "/etc/systemd/system/spotipi.
 def panel_size():
     """(width, height) of the LED panel, from rgb_options.ini."""
     try:
-        cfg = configparser.ConfigParser()
-        cfg.read(CONFIG_INI)
-        w, h, _ = panel_geometry(cfg["DEFAULT"])
+        w, h, _ = panel_geometry(read_panel_config(panel_config_paths(os.path.dirname(CONFIG_INI))))
         return w, h
     except Exception:
         return 64, 64
