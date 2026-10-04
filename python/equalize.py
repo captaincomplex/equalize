@@ -37,7 +37,7 @@ import requests
 from PIL import Image
 
 from audio_source import AirPlaySource, DemoSource, SoundDetector
-from display_logic import compute_effective, effective_brightness
+from display_logic import compute_effective, effective_brightness, panel_geometry
 from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for
 from styles import STYLES, draw as draw_style
 from spectrum import Analyzer, BarSmoother
@@ -71,6 +71,9 @@ def load_matrix():
     options.parallel = int(d.get("parallel", 1))
     options.hardware_mapping = d.get("hardware_mapping", "adafruit-hat")
     options.gpio_slowdown = int(d.get("gpio_slowdown", 2))
+    rotate = panel_geometry(d)[2]
+    if rotate:
+        options.pixel_mapper_config = "Rotate:%d" % rotate   # the driver turns the picture
     options.brightness = int(d.get("brightness", 60))
     if d.get("refresh_rate"):
         options.limit_refresh_rate_hz = int(d["refresh_rate"])

@@ -372,7 +372,9 @@ def _vu_meter(d, box, level, peak, field, peak_colour, show_peaks):
     cx = x0 + (w - 1) / 2
     # As long as the width allows: the arc's ends sit sin(swing) * r either side.
     r = min((w / 2 - 1) / math.sin(VU_SWING), h * 0.92)          # needle length
-    cy = y0 + min(h - 1, r + 2)                                  # pivot below the arc
+    # centre the dial (arc top to hub) top to bottom
+    span = r + max(1, round(r * 0.06))
+    cy = y0 + max(0, (h - 1 - span) // 2) + r
     n_rows = len(field)
 
     def at(frac, radius):

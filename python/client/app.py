@@ -21,6 +21,7 @@ sys.dont_write_bytecode = True      # runs as root; keep __pycache__ out
 from flask import Flask, Response, jsonify, redirect, render_template, request, send_file, url_for
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from display_logic import panel_geometry  # noqa: E402
 from render import THEMES, auto_bars, colour_field, peak_colour_for, theme_css  # noqa: E402
 from styles import STYLE_LABELS, STYLES, draw, sample_levels  # noqa: E402
 from state import PREVIEW_PATH, read_state, read_status, reset_timer, write_state  # noqa: E402
@@ -46,8 +47,8 @@ def panel_size():
     try:
         cfg = configparser.ConfigParser()
         cfg.read(CONFIG_INI)
-        d = cfg["DEFAULT"]
-        return (int(d["columns"]) * int(d.get("chain_length", 1)), int(d["rows"]) * int(d.get("parallel", 1)))
+        w, h, _ = panel_geometry(cfg["DEFAULT"])
+        return w, h
     except Exception:
         return 64, 64
 

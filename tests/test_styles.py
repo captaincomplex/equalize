@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 from render import auto_bars, colour_field  # noqa: E402
 from styles import STYLES, draw, sample_levels  # noqa: E402
 
-SIZES = [(64, 32), (64, 64), (128, 64)]
+SIZES = [(64, 32), (32, 64), (64, 64), (128, 64), (64, 128)]   # width x height; 32x64 and 64x128 are upright
 CYAN = (45, 226, 245)
 
 
@@ -132,3 +132,24 @@ def test_new_themes_get_brighter_upwards(theme):
     f = colour_field(theme, 16, 64)
     assert f.shape == (64, 16, 3)
     assert f[-1].sum() > f[0].sum()
+
+
+@pytest.mark.parametrize("w,h", SIZES)
+def test_needle_fits_and_is_centred(w, h):
+    px = frame("vu", w, h)
+    lit = np.nonzero(px.any(axis=2))
+    assert lit[0].min() >= 0 and lit[0].max() < h
+    top, bottom = lit[0].min(), lit[0].max()
+    assert abs((top + bottom) / 2 - (h - 1) / 2) <= h * 0.12   # roughly centred top to bottom
+
+
+@pytest.mark.parametrize("cfg,want", [
+    ({"rows": "32", "columns": "64"}, (64, 32, 0)),
+    ({"rows": "32", "columns": "64", "rotate": "90"}, (32, 64, 90)),
+    ({"rows": "64", "columns": "64", "chain_length": "2"}, (128, 64, 0)),
+    ({"rows": "64", "columns": "64", "chain_length": "2", "rotate": "270"}, (64, 128, 270)),
+    ({"rows": "64", "columns": "64", "rotate": "45"}, (64, 64, 0)),        # nonsense -> not turned
+])
+def test_panel_geometry(cfg, want):
+    from display_logic import panel_geometry
+    assert panel_geometry(cfg) == want

@@ -19,7 +19,7 @@ your Sonos gets, perfectly in time, and draws it.
 
 **Status:** first version, tested off-Pi (see *What has and hasn't been tested*).
 **Stack:** Raspberry Pi · rpi-rgb-led-matrix · shairport-sync (AirPlay 2) · Python · numpy · Flask
-**Panels:** 64×32, 64×64, 128×64 (two 64×64 side by side).
+**Panels:** 64×32, 64×64, 128×64 (two 64×64 side by side), and upright: 32×64 (a 64×32 on its side) and 64×128 (two 64×64 one above the other). Upright panels are set with `rotate` in `config/rgb_options.ini`.
 
 Part of the [xpdr.aero](https://github.com/captaincomplex/captaincomplex.github.io) projects.
 Grown from Spotipi Photo, whose display loop, web panel, timer, quiet hours,
