@@ -7,6 +7,8 @@
 | ![Sunset](docs/style-sunset.gif) | ![Disc](docs/style-disc.gif) | ![Meter](docs/style-meter.gif) | ![Equals](docs/style-equals.gif) |
 | **Mirror** (Ocean) | **Wave** (Aurora) | **Waterfall** (Thermal) | **Needle** (Amber) |
 | ![Mirror](docs/style-mirror.gif) | ![Wave](docs/style-wave.gif) | ![Waterfall](docs/style-waterfall.gif) | ![Needle](docs/style-vu.gif) |
+| **Analyser** (Classic) | **Scope** (Ocean) | **Trails** (Fire) | **Plasma** (Aurora) |
+| ![Analyser](docs/style-analyser.gif) | ![Scope](docs/style-scope.gif) | ![Trails](docs/style-trails.gif) | ![Plasma](docs/style-plasma.gif) |
 
 A graphic equaliser for an RGB LED matrix on a Raspberry Pi. Play music on your
 Sonos from your iPhone, and the panel on the wall bounces along to it: bass on
@@ -61,8 +63,9 @@ the music tile, or the speaker icon in Spotify) and tick **your Sonos** *and*
 Works from an iPhone, iPad, Mac or Apple TV, with any app. The Pi makes no sound.
 
 ### Styles
-Eight ways to draw the music, plus plain bars. The first four come from the
-logo designs:
+Twelve ways to draw the music, plus plain bars. The first four come from the
+first logo designs, and the last four from the music players of the early
+2000s:
 - **Sunset** (default): bars standing on a horizon, the sun's stripes cut through
   them, a neon grid floor below.
 - **Disc**: the spectrum as a ring of rays around a small striped sun.
@@ -76,6 +79,14 @@ logo designs:
   at the top, brighter where it was louder, so you can see the beat.
 - **Needle**: an old hi-fi's needle meter. On a wide panel there are two:
   bass on the left, treble on the right.
+- **Analyser**: Winamp's spectrum analyser: thin bars whose colours are fixed
+  by height, grey peak dots, a faint grid behind.
+- **Scope**: Winamp's oscilloscope, drawing the sound wave itself. It starts
+  each picture where the wave crosses zero, so a held note stands still.
+- **Trails**: each picture grows and fades behind the next, so the music
+  flies out of the middle towards you, as in MilkDrop or Windows Media Player.
+- **Plasma**: slow flowing colour, pushed into ripples by the bass, like
+  Media Player's "Ambience". Brighter when the music is louder.
 
 Every style works with every colour theme and every panel size. (Equals keeps
 its cyan reflection with *vapor*; with other colours it reflects their own.) Pick one in

@@ -234,7 +234,7 @@ def main():
                 style = state.get("style", "sunset")
                 img = draw_style(style if style in STYLES else "sunset", levels, peaks,
                                  width, height, field, peak_colour=peak_colour_for(shown),
-                                 show_peaks=bool(state.get("peaks", True)))
+                                 show_peaks=bool(state.get("peaks", True)), wave=samples)
                 canvas.SetImage(img)
                 canvas = matrix.SwapOnVSync(canvas)
 

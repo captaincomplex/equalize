@@ -33,11 +33,15 @@ DEFAULT_STATE = {
     "brightness": 60,               # 1-100, the daytime level
 
     # Look
-    "style": "sunset",              # see styles.STYLES: sunset, disc, meter, equals, bars
+    "style": "sunset",              # see styles.STYLES
     "theme": "vapor",               # see render.THEMES
     "bars": 0,                      # 0 = automatic for the panel width
     "peaks": True,                  # the little falling caps above the bars
     "sensitivity": 50,              # 1-100; higher = taller, busier bars
+
+    # How the control panel itself looks: "rack" (studio rack units) or
+    # "player" (an early-2000s media player). The LED panel is unaffected.
+    "ui": "rack",
 
     # Sound
     "audio_source": "airplay",      # "airplay" or "demo"

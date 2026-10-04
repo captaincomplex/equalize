@@ -29,6 +29,10 @@
       its AirPlay outputs; librespot 0.8.0 needs Premium.
 - [x] More styles: Mirror, Wave, Waterfall, Needle (4 Oct 2026), and eight more
       colour themes.
-- [ ] Look at the new styles on the real LEDs: the Needle's dim dial face and
-      the Wave's dotted peak line may need brightness tweaks.
+- [ ] Look at the new styles on the real LEDs: the Needle's dim dial face, the
+      Wave's dotted peak line, Trails' fade rate and Plasma's speed may need
+      tweaks.
+- [ ] Pick a logo from image/shortlist/sheet.png, then rebuild the icons.
+- [ ] After the AirPlay byte-alignment fix, put Sensitivity back to the
+      middle and see whether the bars still sit at the top.
 - [ ] Auto-updater (as Spotipi Photo has).

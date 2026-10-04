@@ -22,3 +22,6 @@ venv/
 # Previews made by tools/preview.py
 preview.gif
 preview.png
+
+# Design review screenshots (made locally)
+.impeccable/review/
