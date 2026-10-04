@@ -12,6 +12,15 @@
       (either way the bars should fall within 3 s; the code handles both).
 - [ ] Check the frame rate and CPU temperature on a Pi 3A+ while AirPlay plays.
 - [ ] Try 64×32 and 128×64 panels, if available.
+- [ ] Look at each style (sunset, disc, meter, equals) on the real LEDs; the
+      faint "unlit" meter segments and the grid floor may need brightness tweaks.
+
+## Sharing with Spotipi Photo (same Pi)
+- [ ] Check the Pi's OS first (`cat /etc/os-release`). Spotipi Photo's notes say
+      it runs Raspbian Buster; Equalize is built for Raspberry Pi OS trixie.
+- [ ] Time the hand-over in each direction (AirPlay start -> bars; stop -> covers).
+- [ ] Confirm shairport-sync's active-state hooks fire as expected via sudo
+      (`journalctl -u shairport-sync`), and that `equalize-panel status` agrees.
 
 ## Possible later
 - [ ] Spotify Connect route (librespot + OwnTone forwarding to the Sonos by

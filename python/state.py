@@ -33,6 +33,7 @@ DEFAULT_STATE = {
     "brightness": 60,               # 1-100, the daytime level
 
     # Look
+    "style": "sunset",              # see styles.STYLES: sunset, disc, meter, equals, bars
     "theme": "vapor",               # see render.THEMES
     "bars": 0,                      # 0 = automatic for the panel width
     "peaks": True,                  # the little falling caps above the bars
@@ -40,6 +41,11 @@ DEFAULT_STATE = {
 
     # Sound
     "audio_source": "airplay",      # "airplay" or "demo"
+
+    # Only matters when Spotipi Photo is installed on the same Pi (they can't
+    # both drive the panel). "auto": Equalize while AirPlay music plays,
+    # Spotipi Photo the rest of the time. "equalize" / "spotipi": always that one.
+    "panel_share": "auto",
 
     # Sunrise/sunset dimmer
     "dimmer_enabled": False,

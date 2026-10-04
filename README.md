@@ -2,7 +2,9 @@
 
 # Equalize
 
-![Equalize on a 64×64 panel, Vapor colours](docs/preview-64x64.gif) ![Equalize on a 128×64 panel, Sunset colours](docs/preview-128x64.gif)
+| Sunset (default) | Disc | Meter | Equals |
+|:-:|:-:|:-:|:-:|
+| ![Sunset](docs/style-sunset.gif) | ![Disc](docs/style-disc.gif) | ![Meter](docs/style-meter.gif) | ![Equals](docs/style-equals.gif) |
 
 A graphic equaliser for an RGB LED matrix on a Raspberry Pi. Play music on your
 Sonos from your iPhone, and the panel on the wall bounces along to it: bass on
@@ -56,6 +58,18 @@ the music tile, or the speaker icon in Spotify) and tick **your Sonos** *and*
 
 Works from an iPhone, iPad, Mac or Apple TV, with any app. The Pi makes no sound.
 
+### Styles
+Four ways to draw the music, each based on a logo design, plus plain bars:
+- **Sunset** (default): bars standing on a horizon, the sun's stripes cut through
+  them, a neon grid floor below.
+- **Disc**: the spectrum as a ring of rays around a small striped sun.
+- **Meter**: a hi-fi LED meter, stacked segments with the unlit ones faintly
+  glowing and a lit segment marking each peak.
+- **Equals**: bars rising from a centre line with their reflection below.
+
+Every style works with every colour theme and every panel size. Pick one in
+the web panel, which shows a live preview of each.
+
 ### Display modes (web panel)
 - **On (auto)**: bars whenever music is arriving over AirPlay; dark otherwise.
 - **Spotify only**: the same, but only while Spotify says your account is
@@ -107,14 +121,34 @@ file across and give the installer its path, plus the same Client ID and Secret.
 Spotify now allows new developers only one app, so reusing the existing one
 matters. Otherwise run `bash generate-token.sh`.
 
-**Sharing a Pi with Spotipi Photo** works for the web panels (Equalize moves to
-port 8080), but only one program can drive the LED panel at a time; the
-installer tells you how to switch.
+### Sharing a Pi with Spotipi Photo
+
+Both can be installed on one Pi. Only one can light the panel at a time, so
+they take turns, and Equalize's control panel gets a **Sharing with Spotipi
+Photo** switch:
+
+- **Auto** (default): Equalize while music arrives over AirPlay; Spotipi Photo's
+  album covers and photos the rest of the time. In practice, *how you play*
+  decides: AirPlay to your Sonos **and** Equalize for the equaliser, or play to
+  the Sonos alone for album covers.
+- **Equalize** or **Spotipi Photo**: always that one.
+
+How it works: when AirPlay music starts, shairport-sync runs
+`/usr/local/bin/equalize-panel airplay-start`, which stops Spotipi Photo's
+display and starts Equalize's. Ten seconds after the music stops it runs
+`airplay-stop`, which swaps back. `equalize.service` also declares
+`Conflicts=spotipi.service`, so systemd itself never lets both run. The two web
+panels stay up throughout: Spotipi Photo's on port 80, Equalize's on 8080.
+
+Expect a pause of a couple of seconds while the panel changes hands.
+[Unverified: not yet timed on a Pi.] If Spotipi Photo's own auto-updater
+restarts it while the equaliser is showing, Spotipi Photo takes the panel back
+until the next AirPlay session.
 
 ## Seeing it without a Pi
 
 ```bash
-python3 tools/preview.py --size 128x64 --theme sunset     # writes preview.gif
+python3 tools/preview.py --size 128x64 --style disc       # writes preview.gif
 python3 tools/preview.py --wav song.wav                   # from a real recording
 python3 -m pytest                                         # the tests
 python3 image/make_logo.py                                # rebuild the logo files (needs cairosvg)
@@ -140,12 +174,16 @@ equalize/
 │   ├── rgb_options.ini       # panel size and wiring
 │   ├── shairport-sync.conf   # the AirPlay receiver's settings
 │   ├── equalize.service      # display service
-│   └── equalize-web.service  # web panel service
+│   ├── equalize-web.service  # web panel service
+│   ├── equalize-panel        # hands the LED panel between Equalize and Spotipi Photo
+│   ├── equalize-panel.service    # runs it at boot
+│   └── equalize-panel.sudoers    # lets the AirPlay receiver run it, and nothing else
 ├── python/
 │   ├── equalize.py           # the display program
 │   ├── audio_source.py       # AirPlay loopback reader, demo pattern, silence detector
 │   ├── spectrum.py           # sound → bar heights (FFT, bands, auto gain, gravity)
 │   ├── render.py             # bar heights → picture; colour themes
+│   ├── styles.py             # the four styles: sunset, disc, meter, equals
 │   ├── display_logic.py      # on/off rules, timer, quiet hours, dimmer
 │   ├── state.py              # settings file + live status
 │   ├── getSongInfo.py        # Spotify "now playing" (optional)
