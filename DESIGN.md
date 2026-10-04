@@ -1,8 +1,10 @@
 # Design: the Equalize control panel
 
 Recorded from the built page (python/client/templates/index.html), 4 Oct 2026.
-Two skins share one structure; `ui` in state.json picks one ("rack" default,
-"player"), switched from the header. The LED panel itself is unaffected.
+Skins share one structure; `ui` in state.json picks one, switched from the
+header: "rack" (the default, chosen by the owner), "player", and two
+concepts under consideration, "daylight" and "silver". The LED panel itself
+is unaffected.
 
 ## Structure (both skins)
 - Header: the name, and the Rack / Player switch.
@@ -32,6 +34,17 @@ Two skins share one structure; `ui` in state.json picks one ("rack" default,
   Share Tech Mono in the LCD.
 - Buttons are raised bevels that sink and turn to LCD when chosen; ticks are
   drawn boxes; the acknowledgement is a status bar along the bottom.
+
+## Daylight (concept): pale 1960s German hi-fi
+- Ground #e9e6df, faces #f7f5f0, ink #1b1b1a, secondary #5e5b55.
+- One accent, orange #e8590c, only for "chosen". Lower-case Barlow labels.
+- Segmented controls in a recessed slot; round orange-cored slider knobs.
+
+## Silver (concept): a 1970s receiver
+- Brushed aluminium faces (#d9dbdd to #b9bcc0) on #2a2c2f; engraved black
+  tracked legends; amber #ffb347 readouts in dark meter windows.
+- Raised silver push buttons that go dark and amber when pressed; black
+  knurled knobs on the sliders, orange #ff6a1a fill.
 
 ## Rules
 - Brand colour never decorates: it only says what is on, chosen or wrong.

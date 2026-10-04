@@ -117,7 +117,7 @@ def index():
     w, h = panel_size()
     return render_template("index.html", s=read_state(), dash=dashboard(),
                            themes=themes, styles=styles, bar_choices=BAR_CHOICES,
-                           panel_aspect="%d / %d" % (w, h))
+                           panel_aspect="%d / %d" % (w, h), ui_skins=UI_SKINS)
 
 
 @app.route("/style/<name>.png")
@@ -183,7 +183,8 @@ def set_look():
     return done()
 
 
-UI_SKINS = ("rack", "player")
+# The control panel's skins, in the order the switch shows them. Rack first: the default.
+UI_SKINS = {"rack": "Rack", "player": "Player", "daylight": "Daylight", "silver": "Silver"}
 
 
 @app.route("/ui", methods=["POST"])
