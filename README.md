@@ -91,9 +91,13 @@ logos (you choose the logo at the bottom of the control panel):
 
 - **Dance** (best in Rainbow): Dance Dance Revolution. Four lanes, ← bass,
   ↓ low-mid, ↑ high-mid, → treble, or eight with the diagonals (← ↖ ↙ ↓ ↑ ↘ ↗ →,
-  lowest notes on the left; a panel at least 64 wide). Each time a lane's
-  part of the music hits, a rounded arrow scrolls up to its target, which
-  flashes as it arrives. Choose 4 or 8 under *Dance arrows*.
+  lowest notes on the left; a panel at least 64 wide). As in the game, it
+  finds the beat (from the kick drum, within a couple of seconds) and sends
+  arrows up early so they reach their targets on the beat: on-beat arrows
+  bright, the odd half-beat dimmer, now and then a jump (two at once), mostly
+  in the lanes where the music is busiest. The targets pulse on each beat and
+  burst when an arrow lands. Until it has the beat, an arrow goes up whenever
+  a lane's part of the music hits. Choose 4 or 8 under *Dance arrows*.
 
   ![Dance with 8 arrows](docs/style-dance8.gif)
 

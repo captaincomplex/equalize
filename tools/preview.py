@@ -95,7 +95,7 @@ def main():
         samples = read(t)
         levels, peaks = smoother.update(analyzer.process(samples, 50, dt), dt)
         frame = draw(a.style, levels, peaks, width, height, field,
-                     peak_colour=peak_colour_for(a.theme), wave=samples, dance_lanes=a.dance_lanes)
+                     peak_colour=peak_colour_for(a.theme), wave=samples, dance_lanes=a.dance_lanes, dt=dt)
         frames.append(as_leds(frame, a.scale))
         if a.still and abs(t - float(a.still)) < dt / 2:
             frames[-1].save(os.path.splitext(a.out)[0] + ".png")
