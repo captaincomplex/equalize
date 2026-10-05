@@ -160,7 +160,53 @@ def dashboard():
         "uptime_s": uptime_seconds(),
         "timer_remaining_s": remaining,
         "share": share_info(),
+        "update": update_info(),
     }
+
+
+# ------------------------------------------------------------------ updates
+# python/updater.py does the work, as its own little systemd job (it
+# restarts this control panel on the way); this only reads what it wrote and
+# starts it.
+UPDATER = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "updater.py"))
+UPDATE_STATUS = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "update.json"))
+
+
+def update_info():
+    import json as _json
+    try:
+        with open(UPDATE_STATUS) as f:
+            return _json.load(f) or {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _run_updater(action):
+    try:
+        subprocess.Popen(["systemd-run", "--no-block", "--collect", "--quiet",
+                          "--unit=equalize-update-%s-%d" % (action, int(time.time())),
+                          sys.executable, UPDATER, action])
+        return True
+    except OSError:
+        return False
+
+
+@app.route("/update/check", methods=["POST"])
+def update_check():
+    return done() if _run_updater("check") else (jsonify(ok=False), 500)
+
+
+@app.route("/update/now", methods=["POST"])
+def update_now():
+    return done() if _run_updater("apply") else (jsonify(ok=False), 500)
+
+
+@app.route("/update/auto", methods=["POST"])
+def update_auto():
+    state = read_state()
+    state["auto_update"] = request.form.get("auto_update") == "on"
+    write_state(state)
+    return done()
 
 
 def done():

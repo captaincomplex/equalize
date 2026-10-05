@@ -64,6 +64,9 @@ DEFAULT_STATE = {
     # Spotipi Photo the rest of the time. "equalize" / "spotipi": always that one.
     "panel_share": "auto",
 
+    # Install new releases by itself, overnight (python/updater.py)
+    "auto_update": True,
+
     # Sunrise/sunset dimmer
     "dimmer_enabled": False,
     "dim_brightness": 20,
