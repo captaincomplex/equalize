@@ -7,7 +7,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 
-from song_info import (strip_height, AirPlayMeta, Banner, now_playing, parse_items,  # noqa: E402
+from song_info import (AirPlayMeta, Banner, now_playing, parse_items,  # noqa: E402
                        song_line, text_mask)
 
 
@@ -53,21 +53,35 @@ def test_now_playing_prefers_the_source_that_is_playing():
 def test_song_line_makes_any_name_printable():
     assert song_line(("Kraków – Łódź", "Sigur Rós")) == "Kraków - Lódz - Sigur Rós"
     assert song_line(("東京", "")) == ""                      # unprintable letters are left out, no crash
-    assert text_mask("Hello").shape[0] == 14 and strip_height() == 15
+    assert text_mask("Hello").shape[0] >= 6
 
 
-def test_banner_scrolls_a_long_name_and_centres_a_short_one():
+def test_banner_is_drawn_over_the_picture_and_centres_a_short_name():
     b = Banner()
     b.update(("Hi", ""), now=0.0)
     img = b.draw(Image.new("RGB", (64, 64), (50, 50, 50)), (255, 0, 0), now=0.0)
     a = np.asarray(img)
-    assert (a[:64 - strip_height()] == 50).all()                    # the picture above is untouched
-    lit = np.nonzero(a[64 - strip_height():, :, 0] == 255)[1]
+    assert (a[:48] == 50).all()                               # well above the words: untouched
+    lit = np.nonzero(a[:, :, 0] == 255)[1]
     assert abs((lit.min() + lit.max()) / 2 - 31.5) <= 1     # centred
+    assert (a[60, :20] == 50).all()                           # beside the words: still the picture
+    assert ((a == 7).all(axis=2)).any()                       # a dark edge round the letters (50 * 0.15)
+
+
+def test_banner_scrolls_a_long_name():
+    b = Banner()
     b.update(("A song with a very long name indeed", "Somebody"), now=10.0)
     first = np.asarray(b.draw(Image.new("RGB", (64, 64)), (255, 0, 0), now=11.0))
     later = np.asarray(b.draw(Image.new("RGB", (64, 64)), (255, 0, 0), now=12.0))
     assert first.any() and not (first == later).all()       # it moves
+
+
+def test_text_sizes():
+    heights = {size: text_mask("Déjà Vu", size).shape[0] for size in ("small", "medium", "large")}
+    assert heights["small"] < heights["medium"] < heights["large"]
+    widths = {size: text_mask("Mr. Brightside", size).shape[1] for size in ("small", "medium", "large")}
+    assert widths["small"] < widths["medium"] < widths["large"]
+    assert text_mask("x", "nonsense").shape == text_mask("x", "medium").shape
 
 
 def test_banner_on_change_shows_for_a_while_then_goes():

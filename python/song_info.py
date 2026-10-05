@@ -152,37 +152,51 @@ def now_playing(via, airplay_meta, spotify_info):
 SCROLL_PX_S = 18             # slow enough to read across a room
 CHANGE_SHOW_S = 8.0          # "when the song changes": at least this long
 
-# ChicagoFLF, a public-domain copy of Chicago, the original Macintosh and
-# iPod lettering (fonts/README-ChicagoFLF.txt).
-# Chosen 5 Oct 2026 from a shortlist: the boldest and easiest to read from
-# across a room. Drawn at 12 pixels, its own size, with every LED on or off.
-FONT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "ChicagoFLF.ttf")
-FONT_PX = 12
-TEXT_TOP = 0                 # accents (É) reach the top row ...
-TEXT_H = 14                  # ... and descenders (g, y) the bottom one
+# The words are drawn over the picture, each letter with a dark edge so it
+# reads on top of anything. Three sizes, all pixel fonts with every LED on
+# or off (fonts/README.md says where each comes from and its licence):
+#   small   Tom Thumb, 6 rows: about 16 letters across a 64-wide panel
+#   medium  X11 5x7, 7 rows: about 10 letters (the default)
+#   large   ChicagoFLF, 14 rows: the original Macintosh lettering
+FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+TEXT_SIZES = {"small": ("tom-thumb.pil", None), "medium": ("5x7.pil", None),
+              "large": ("ChicagoFLF.ttf", 12)}
+_fonts = {}
 
 
-def _font():
-    global TEXT_H
-    try:
-        return ImageFont.truetype(FONT_PATH, FONT_PX)
-    except OSError:
-        # the file missing: Pillow's own pixel font, 11 rows tall
-        TEXT_H = 11
-        if hasattr(ImageFont, "load_default_imagefont"):
-            return ImageFont.load_default_imagefont()
-        return ImageFont.load_default()
+def _font(size):
+    """(font, top row, rows): the font, and the band of rows its letters use,
+    from the tallest accent to the lowest descender, so every line sits on
+    the same baseline."""
+    size = size if size in TEXT_SIZES else "medium"
+    if size not in _fonts:
+        name, px = TEXT_SIZES[size]
+        try:
+            path = os.path.join(FONT_DIR, name)
+            font = ImageFont.truetype(path, px) if px else ImageFont.load(path)
+        except OSError:                                  # the file missing
+            font = (ImageFont.load_default_imagefont() if hasattr(ImageFont, "load_default_imagefont")
+                    else ImageFont.load_default())
+        rows = _draw(font, "\u00c5\u00c9\u00d6gjpqy|", 40).any(axis=1).nonzero()[0]
+        _fonts[size] = (font, int(rows.min()), int(rows.max() - rows.min() + 1))
+    return _fonts[size]
 
 
-_FONT = None
+def _draw(font, text, height):
+    w = max(1, int(font.getbbox(text)[2]) + 1) if text else 1
+    im = Image.new("1", (w, height))
+    d = ImageDraw.Draw(im)
+    d.fontmode = "1"                                          # no smoothing
+    d.text((0, 0), text, font=font, fill=1)
+    return np.asarray(im, dtype=bool)
 
 
 def _printable(text):
-    """The font knows Latin-1 (é, ü, ß, Å...). Anything else: the nearest
+    """The fonts know Latin-1 (é, ü, ß, Å...). Anything else: the nearest
     plain letter (ł -> l), a plain dash or quote, or left out."""
-    swaps = {"–": "-", "—": "-", "‘": "'", "’": "'",
-             "“": '"', "”": '"', "…": "...", " ": " ",
-             "Ł": "L", "ł": "l", "Œ": "OE", "œ": "oe"}
+    swaps = {"\u2013": "-", "\u2014": "-", "\u2018": "'", "\u2019": "'",
+             "\u201c": '"', "\u201d": '"', "\u2026": "...", "\u00a0": " ",
+             "\u0141": "L", "\u0142": "l", "\u0152": "OE", "\u0153": "oe"}
     out = []
     for ch in text:
         ch = swaps.get(ch, ch)
@@ -199,25 +213,23 @@ def song_line(song):
     return _printable("%s - %s" % (title, artist) if artist else title)
 
 
-def text_mask(text):
-    """The words as a True/False array, one row per LED row (TEXT_H high)."""
-    global _FONT
-    if _FONT is None:
-        _FONT = _font()
-    w = max(1, int(_FONT.getbbox(text)[2])) if text else 1
-    im = Image.new("1", (w, TEXT_H))
-    d = ImageDraw.Draw(im)
-    d.fontmode = "1"                                          # no smoothing
-    d.text((0, -TEXT_TOP), text, font=_FONT, fill=1)
-    return np.asarray(im, dtype=bool)
+def text_mask(text, size="medium"):
+    """The words as a True/False array, one row per LED row."""
+    font, top, rows = _font(size)
+    m = _draw(font, text, top + rows + 2)[top:top + rows]
+    cols = np.nonzero(m.any(axis=0))[0]
+    return m[:, cols.min():cols.max() + 1] if len(cols) else m[:, :1]   # no blank edges
 
 
-def strip_height():
-    """Rows the song's name takes at the bottom: the letters and a dark row above."""
-    global _FONT
-    if _FONT is None:
-        _FONT = _font()
-    return TEXT_H + 1
+def _grow(m):
+    """The mask and every LED touching it: the dark edge round each letter."""
+    p = np.pad(m, 1)
+    out = p.copy()
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            out[max(0, dy):p.shape[0] + min(0, dy), max(0, dx):p.shape[1] + min(0, dx)] |= \
+                p[max(0, -dy):p.shape[0] - max(0, dy), max(0, -dx):p.shape[1] - max(0, dx)]
+    return out
 
 
 def text_colour(field):
@@ -229,23 +241,25 @@ def text_colour(field):
 
 
 class Banner:
-    """The song's name along the bottom of the panel.
+    """The song's name along the bottom of the panel, over the picture.
 
-    mode "always": a strip the whole time; the picture is drawn above it.
-    mode "change": over the picture for a few seconds each time the song
-    changes (long names scroll through once), then gone.
+    mode "always": the whole time the music plays.
+    mode "change": for a few seconds each time the song changes (a long name
+    scrolls through once), then gone.
     """
 
     def __init__(self):
-        self.line = None
+        self.line = self.size = None
         self.mask = None
         self.since = 0.0
 
-    def update(self, song, now):
+    def update(self, song, now, size="medium"):
         line = song_line(song) if song else None
         if line != self.line:
-            self.line, self.since = line, now
-            self.mask = text_mask(line) if line else None
+            self.since = now
+        if line != self.line or size != self.size:
+            self.line, self.size = line, size
+            self.mask = text_mask(line, size) if line else None
 
     def showing(self, mode, width, now):
         if mode == "always":
@@ -257,24 +271,25 @@ class Banner:
         return now - self.since < max(CHANGE_SHOW_S, once + 1.0)
 
     def draw(self, img, colour, now):
-        """Paint the strip into the bottom rows of img (a PIL image)."""
+        """Paint the words over the bottom of img (a PIL image): each letter
+        in colour, the LEDs right round it dimmed so it reads over anything,
+        the rest of the picture left as it is."""
         a = np.asarray(img).copy()
         h, w = a.shape[:2]
-        th = self.mask.shape[0]
-        top = h - th - 1
-        a[top:] = 0
         m = self.mask
-        tw = m.shape[1]
+        th, tw = m.shape
         if tw <= w:
             x0 = (w - tw) // 2                                  # fits: centred, still
-            a[top + 1:top + 1 + th, x0:x0 + tw][m] = colour
         else:
             # enters from the right, leaves to the left, round again
-            gap = w
-            off = int((now - self.since) * SCROLL_PX_S) % (tw + gap)
-            xs = np.arange(w) + off - w
-            ok = (xs >= 0) & (xs < tw)
-            cols = np.zeros((th, w), dtype=bool)
-            cols[:, ok] = m[:, xs[ok]]
-            a[top + 1:top + 1 + th][cols] = colour
+            x0 = w - int((now - self.since) * SCROLL_PX_S) % (tw + w)
+        y0 = h - th - 1                                         # one row of edge below
+        for mask, paint in ((_grow(m), None), (np.pad(m, 1), colour)):
+            ys, xs = np.nonzero(mask)
+            ys, xs = ys + y0 - 1, xs + x0 - 1
+            ok = (ys >= 0) & (ys < h) & (xs >= 0) & (xs < w)
+            if paint is None:
+                a[ys[ok], xs[ok]] = (a[ys[ok], xs[ok]] * 0.15).astype(np.uint8)
+            else:
+                a[ys[ok], xs[ok]] = np.asarray(paint, dtype=np.uint8)
         return Image.fromarray(a)

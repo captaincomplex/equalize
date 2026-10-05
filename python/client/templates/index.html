@@ -491,9 +491,15 @@
         <label><input type="radio" name="song_text" value="{{ value }}" {{ 'checked' if s.song_text == value }}><span>{{ label }}</span></label>
         {% endfor %}
       </div>
-      <p class="hint">The song and artist along the bottom of the panel, scrolling if long.
-        <b>When it changes</b> shows it for a few seconds as each song starts; <b>Always</b>
-        moves the picture up to make room.</p>
+      <div class="seg" style="--n:3; margin-top:6px" role="radiogroup" aria-label="Text size">
+        {% for value, label in [("small","Small"),("medium","Medium"),("large","Large")] %}
+        <label><input type="radio" name="song_size" value="{{ value }}" {{ 'checked' if (s.song_size or 'medium') == value }}><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="hint">The song and artist along the bottom of the panel, over the picture,
+        scrolling if long. <b>When it changes</b> shows it for a few seconds as each song starts.
+        <b>Small</b> fits about 16 letters across a 64-wide panel, <b>Medium</b> about 10,
+        <b>Large</b> about 6.</p>
 
       <h3 id="sens-l">Sensitivity</h3>
       <div class="slider">

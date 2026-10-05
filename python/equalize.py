@@ -42,7 +42,7 @@ from display_logic import (compute_effective, effective_brightness, panel_config
 from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for
 from styles import STYLES, draw as draw_style
 from spectrum import Analyzer, BarSmoother
-from song_info import AirPlayMeta, Banner, cover_art, now_playing, strip_height, text_colour
+from song_info import AirPlayMeta, Banner, cover_art, now_playing, text_colour
 from state import COVER_PATH, PREVIEW_PATH, read_state, write_status
 
 DIR = os.path.dirname(__file__)
@@ -269,23 +269,16 @@ def main():
                 levels, peaks = smoother.update(target, dt)
                 style = state.get("style", "ledring")
 
-                # the song's name: a strip along the bottom, if chosen
+                # the song's name along the bottom, over the picture, if chosen
                 song_mode = state.get("song_text", "off")
                 banner.update(now_playing(getattr(source, "via", None), airplay_meta, spotify.info)
-                              if song_mode != "off" else None, now)
-                strip = banner.showing(song_mode, width, now)
-                pic_h = height - strip_height() if strip and song_mode == "always" else height
+                              if song_mode != "off" else None, now, state.get("song_size", "medium"))
                 img = draw_style(style if style in STYLES else "ledring", levels, peaks,
-                                 width, pic_h, field if pic_h == height else field[np.linspace(0, height - 1, pic_h).astype(int)],
-                                 peak_colour=peak_colour_for(shown),
+                                 width, height, field, peak_colour=peak_colour_for(shown),
                                  show_peaks=bool(state.get("peaks", True)), wave=samples,
                                  dance_lanes=int(state.get("dance_lanes", 4)), dt=dt)
-                if pic_h != height:
-                    full = Image.new("RGB", (width, height))
-                    full.paste(img, (0, 0))
-                    img = full
-                if strip:
-                    img = banner.draw(img, text_colour(field), now)
+                if banner.showing(song_mode, width, now):
+                    img = banner.draw(img, text_colour(field), now)    # over the picture
                 canvas.SetImage(img)
                 canvas = matrix.SwapOnVSync(canvas)
 

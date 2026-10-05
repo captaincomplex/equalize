@@ -42,9 +42,11 @@ DEFAULT_STATE = {
     "sensitivity": 50,              # 1-100; higher = taller, busier bars
     "sensitivity_scale": 2,         # 2 = the 8-33 dB scale (see spectrum.sensitivity_db)
     "dance_lanes": 4,               # the Dance style: 4 arrows, or 8 with the diagonals
-    # The song's name along the bottom of the panel: "off", "change" (a few
-    # seconds when the song changes) or "always" (the picture moves up).
+    # The song's name along the bottom of the panel, over the picture: "off",
+    # "change" (a few seconds when the song changes) or "always"; in "small",
+    # "medium" or "large" letters (see song_info.TEXT_SIZES).
     "song_text": "off",
+    "song_size": "medium",
 
     # How the control panel itself looks: "rack" (studio rack units) or
     # "player" (an early-2000s media player). The LED panel is unaffected.
