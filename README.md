@@ -136,7 +136,8 @@ release:
    5.5.2**, **NQPTP 1.2.8**, the newest as of 28 Sep 2026), sets up the
    loopback, turns onboard sound off, and creates the services. It asks for
    Spotify details; press Enter to skip.
-3. Open `http://<pi-name>.local` on your phone. Pick **Demo pattern** as the
+3. Open **http://equalize.local** on your phone (the installer gives the Pi
+   that second name). Pick **Demo pattern** as the
    sound source to check the panel, then switch back to **AirPlay**.
 
 **Spotify (optional).** Reuse Spotipi Photo's token: copy its `.cache-<username>`
@@ -161,7 +162,11 @@ How it works: when AirPlay music starts, shairport-sync runs
 display and starts Equalize's. Ten seconds after the music stops it runs
 `airplay-stop`, which swaps back. `equalize.service` also declares
 `Conflicts=spotipi.service`, so systemd itself never lets both run. The two web
-panels stay up throughout: Spotipi Photo's on port 80, Equalize's on 8080.
+panels stay up throughout, each at its own name: **http://equalize.local** and
+**http://spotipi.local** (or whatever the Pi is called). A small front door on
+port 80 (`python/door.py`) sends each visit to the right panel; behind it,
+Equalize's panel listens on 8080 and Spotipi Photo's on 8081. Spotipi Photo
+needs the version with `SPOTIPI_PORT` (October 2026 or later).
 
 Expect a pause of a couple of seconds while the panel changes hands.
 [Unverified: not yet timed on a Pi.] If Spotipi Photo's own auto-updater

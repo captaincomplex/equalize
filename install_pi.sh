@@ -86,7 +86,7 @@ say "AirPlay 2 receiver: NQPTP ${NQPTP_TAG} + shairport-sync ${SHAIRPORT_TAG}"
 note "(Building from source takes 10-20 minutes on a Pi 3. Only done once.)"
 
 apt-get install -y --no-install-recommends build-essential autoconf automake libtool \
-  libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev \
+  libpopt-dev libconfig-dev libasound2-dev avahi-daemon avahi-utils libavahi-client-dev libssl-dev \
   libsoxr-dev libplist-dev libsodium-dev uuid-dev libgcrypt-dev xxd libplist-utils \
   libavutil-dev libavcodec-dev libavformat-dev systemd-dev \
   || problem "apt could not install the AirPlay build tools"
@@ -205,7 +205,9 @@ fi
 # moved it back to 80 on a re-run, where it could never start).
 if [ "$SHARED" = "1" ]; then
   PORT=8080
-  note "Spotipi Photo's control panel has port 80: Equalize's is on 8080."
+  note "Both control panels will answer on the normal address: a small front"
+  note "door on port 80 sends equalize.local to Equalize's panel (8080) and"
+  note "spotipi.local to Spotipi Photo's (moved to 8081)."
 elif ss -ltn 2>/dev/null | grep -q ':80 ' && ! systemctl is-active --quiet equalize-web; then
   PORT=8080
   note "Port 80 is taken by something else: using 8080."
@@ -256,6 +258,29 @@ rm -f /tmp/equalize-panel.sudoers
 systemctl daemon-reload
 systemctl enable equalize-web >/dev/null 2>&1
 systemctl restart equalize-web
+
+# A second name for this Pi, so the panel is at http://equalize.local
+if [ "$(hostname)" != "equalize" ]; then
+  cp "${INSTALL_PATH}/config/equalize-name.service" /etc/systemd/system/
+  sed -i "/\[Service\]/a ExecStart=/bin/bash ${INSTALL_PATH}/config/equalize-name.sh equalize.local" /etc/systemd/system/equalize-name.service
+  systemctl daemon-reload
+  systemctl enable equalize-name >/dev/null 2>&1
+  systemctl restart equalize-name || problem "couldn't announce equalize.local -- use http://$(hostname).local:${PORT} instead"
+fi
+
+# Sharing with Spotipi Photo: Spotipi Photo's panel moves to 8081 and the
+# front door takes port 80, passing each visit to the panel whose name was
+# typed. (Spotipi Photo's installer leaves this setting alone on re-runs.)
+if [ "$SHARED" = "1" ]; then
+  mkdir -p /etc/systemd/system/spotipi-client.service.d
+  printf '[Service]\nEnvironment=SPOTIPI_PORT=8081\n' > /etc/systemd/system/spotipi-client.service.d/equalize-door.conf
+  cp "${INSTALL_PATH}/config/equalize-door.service" /etc/systemd/system/
+  sed -i "/\[Service\]/a ExecStart=${PYTHON} ${INSTALL_PATH}/python/door.py --port 80 --equalize 8080 --spotipi 8081" /etc/systemd/system/equalize-door.service
+  systemctl daemon-reload
+  systemctl restart spotipi-client          # off port 80 first...
+  systemctl enable equalize-door >/dev/null 2>&1
+  systemctl restart equalize-door           # ...then the door takes it
+fi
 # Neither display starts by itself any more: equalize-panel picks one.
 systemctl disable equalize >/dev/null 2>&1
 [ "$SHARED" = "1" ] && systemctl disable spotipi >/dev/null 2>&1
@@ -266,9 +291,13 @@ systemctl enable equalize-panel >/dev/null 2>&1
 HOST=$(hostname)
 echo
 echo "Done."
-echo "  Control panel : http://${HOST}.local$( [ "$PORT" = 80 ] || echo ":$PORT" )"
+if [ "$SHARED" = "1" ] || [ "$PORT" = 80 ]; then
+  echo "  Control panel : http://equalize.local"
+else
+  echo "  Control panel : http://equalize.local:${PORT}"
+fi
 echo "  Display       : sudo systemctl status equalize"
-[ "$SHARED" = "1" ] && echo "  Panel sharing : equalize-panel status    (Spotipi Photo's panel stays on port 80)"
+[ "$SHARED" = "1" ] && echo "  Panel sharing : equalize-panel status    (Spotipi Photo's panel: http://${HOST}.local)"
 echo "  AirPlay       : sudo systemctl status shairport-sync"
 echo
 echo "  To use: on your iPhone, open the AirPlay picker and tick BOTH your"

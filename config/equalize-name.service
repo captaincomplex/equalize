@@ -1,0 +1,13 @@
+[Unit]
+Description=Equalize: announce equalize.local on the network
+After=avahi-daemon.service network-online.target
+Wants=network-online.target
+Requires=avahi-daemon.service
+
+[Service]
+# ExecStart is appended by install_pi.sh.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
