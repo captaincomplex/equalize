@@ -631,17 +631,24 @@ def _led(img, x, y, size, colour):
 
 
 def draw_ledring(levels, peaks, width, height, field, peak_colour, show_peaks=True):
-    """Rings of LED dots round the middle. The inner ring is always faintly
-    lit; each spoke lights outward, further where the music is louder, like
-    the LED ring logo. Unlit dots glow very faintly."""
+    """Rings of LED dots round the middle, the dots growing as they go out
+    (1, then 2, then 3 LEDs across on a 64-high panel), like the LED ring
+    logo. The inner ring is always faintly lit; each spoke lights outward,
+    further where the music is louder. Unlit dots glow very faintly."""
     img = np.zeros((height, width, 3), dtype=np.uint8)
     cx, cy = (width - 1) / 2, (height - 1) / 2
     size = min(width, height)
-    dot = 2 if size >= 48 else 1
-    rings = max(3, min(6, int(size * 0.32 / (dot + 2))))
-    r_in = size * 0.18
-    step = (size / 2 - dot - r_in) / max(1, rings - 1)
-    n = max(10, min(36, int(2 * math.pi * r_in / (dot + 1.2))))
+    big = 3 if size >= 96 else 2 if size >= 48 else 1     # the outermost dot, in LEDs
+    rings = max(3, min(6, int(size / 12)))
+    sizes = [1 + round((big - 1) * j / max(1, rings - 1)) for j in range(rings)]
+    r_in = size * 0.15
+    # space the rings so each dot has a gap of at least one LED to the next
+    radii = [r_in]
+    for j in range(1, rings):
+        radii.append(radii[-1] + (sizes[j - 1] + sizes[j]) / 2 + 1.6)
+    scale = (size / 2 - sizes[-1] / 2 - 0.5 - r_in) / max(1e-6, radii[-1] - r_in)
+    radii = [r_in + (r - r_in) * min(1.0, max(scale, 0.6)) for r in radii]
+    n = max(10, min(36, int(2 * math.pi * r_in / 2.2)))
     rows = len(field) - 1
     for a, lv, pk, i in _around(levels, peaks, n):
         lit = int(round(lv * rings))
@@ -656,14 +663,15 @@ def draw_ledring(levels, peaks, width, height, field, peak_colour, show_peaks=Tr
                 c = col * 0.45                                   # the ring itself, always there
             else:
                 c = col * 0.07
-            r = r_in + j * step
-            _led(img, cx + r * math.cos(a), cy + r * math.sin(a), dot, np.asarray(c).astype(np.uint8))
+            r = radii[j]
+            _led(img, cx + r * math.cos(a), cy + r * math.sin(a), sizes[j], np.asarray(c).astype(np.uint8))
     return Image.fromarray(img, "RGB")
 
 
 def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True):
-    """Rays round an empty circle, longer where the music is louder; the
-    circle itself always faintly lit (the Ring logo)."""
+    """Rays round an empty circle, longer where the music is louder and
+    widening as they go out, like the Ring logo; the circle itself always
+    faintly lit."""
     img = Image.new("RGB", (width, height))
     d = ImageDraw.Draw(img)
     cx, cy = (width - 1) / 2, (height - 1) / 2
@@ -674,14 +682,21 @@ def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True)
     mid = field.shape[1] // 2
     d.ellipse([cx - r0 + 2, cy - r0 + 2, cx + r0 - 2, cy + r0 - 2],
               outline=tuple(int(v) for v in field[rows // 2, mid] * 0.7), width=1)
-    n = max(10, min(32, int(2 * math.pi * r0 / 3.2)))          # room between spokes
+    n = max(10, min(32, int(2 * math.pi * r0 / 3.4)))          # room between spokes
+    w_end = max(1.0, 2 * math.pi * (r0 + reach) / n * 0.55)    # tip width: just over half the gap
     for a, lv, pk, i in _around(levels, peaks, n):
         ca, sa = math.cos(a), math.sin(a)
+        px, py = -sa, ca
         length = lv * reach
-        c = field[int(lv * rows), i]
+        c = tuple(int(v) for v in field[int(lv * rows), i])
         if length >= 0.5:
-            d.line([(cx + r0 * ca, cy + r0 * sa), (cx + (r0 + length) * ca, cy + (r0 + length) * sa)],
-                   fill=tuple(int(v) for v in c), width=1)
+            r1 = r0 + length
+            w1 = 1 + (w_end - 1) * (length / reach)
+            pts = [(cx + r0 * ca, cy + r0 * sa),
+                   (cx + r1 * ca + px * w1 / 2, cy + r1 * sa + py * w1 / 2),
+                   (cx + r1 * ca - px * w1 / 2, cy + r1 * sa - py * w1 / 2)]
+            d.polygon(pts, fill=c)
+            d.line([(cx + r0 * ca, cy + r0 * sa), (cx + r1 * ca, cy + r1 * sa)], fill=c, width=1)
         if show_peaks and pk * reach > length + 1.5:
             pr = r0 + pk * reach
             d.point((cx + pr * ca, cy + pr * sa), fill=tuple(int(v) for v in _peak_rgb(field, i, peak_colour)))

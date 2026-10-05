@@ -184,7 +184,7 @@ def set_look():
 
 
 # The control panel's skins, in the order the switch shows them. Rack first: the default.
-UI_SKINS = {"rack": "Rack", "player": "Player", "daylight": "Daylight", "silver": "Silver"}
+UI_SKINS = {"rack": "Rack", "player": "Player", "silver": "Silver"}
 
 # The logos, made by image/build_logos.py. First = default.
 LOGOS = {"ledring": "LED ring", "ring": "Ring", "led": "LED grid"}
