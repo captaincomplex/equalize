@@ -33,8 +33,8 @@ DEFAULT_STATE = {
     "brightness": 60,               # 1-100, the daytime level
 
     # Look
-    "style": "sunset",              # see styles.STYLES
-    "theme": "vapor",               # see render.THEMES
+    "style": "ledring",             # see styles.STYLES
+    "theme": "mono",                # see render.THEMES ("mono" is Warm white)
     "bars": 0,                      # 0 = automatic for the panel width
     "peaks": True,                  # the little falling caps above the bars
     "sensitivity": 50,              # 1-100; higher = taller, busier bars
@@ -42,6 +42,10 @@ DEFAULT_STATE = {
     # How the control panel itself looks: "rack" (studio rack units) or
     # "player" (an early-2000s media player). The LED panel is unaffected.
     "ui": "rack",
+
+    # The logo (image/logos/<logo>/): the page's icon, the home-screen icon
+    # and the browser-tab icon. "ledring" (default), "ring" or "led".
+    "logo": "ledring",
 
     # Sound
     "audio_source": "airplay",      # "airplay" or "demo"

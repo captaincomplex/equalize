@@ -1,0 +1,13 @@
+[Unit]
+Description=Equalize: front door on port 80 (equalize.local and spotipi.local)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# ExecStart is appended by install_pi.sh. Runs as root so it can use port 80.
+Environment=PYTHONDONTWRITEBYTECODE=1
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

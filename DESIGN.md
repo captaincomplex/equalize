@@ -35,16 +35,24 @@ is unaffected.
 - Buttons are raised bevels that sink and turn to LCD when chosen; ticks are
   drawn boxes; the acknowledgement is a status bar along the bottom.
 
-## Daylight (concept): pale 1960s German hi-fi
-- Ground #e9e6df, faces #f7f5f0, ink #1b1b1a, secondary #5e5b55.
-- One accent, orange #e8590c, only for "chosen". Lower-case Barlow labels.
-- Segmented controls in a recessed slot; round orange-cored slider knobs.
+## Daylight (concept): pale 1960s German hi-fi, at full strength
+- Ground #f3f0e9, ink #161615, secondary #5a5750, slots #e2ddd2.
+- Barlow, lower case, set big: a 46px name, 34px section titles, 24-30px
+  numbers. Heavy black rules (6px under the header, 3px between sections)
+  instead of cards.
+- One orange #e8590c that fills whatever is chosen: pill buttons, slider
+  knobs, switches, tile outlines, the acknowledgement.
 
 ## Silver (concept): a 1970s receiver
 - Brushed aluminium faces (#d9dbdd to #b9bcc0) on #2a2c2f; engraved black
   tracked legends; amber #ffb347 readouts in dark meter windows.
 - Raised silver push buttons that go dark and amber when pressed; black
   knurled knobs on the sliders, orange #ff6a1a fill.
+
+## Logo
+Three logos (image/build_logos.py), chosen in the control panel's Logo
+section: LED ring (default), Ring (teal on deep blue-green), LED grid. The
+header and every icon follow the choice.
 
 ## Rules
 - Brand colour never decorates: it only says what is on, chosen or wrong.

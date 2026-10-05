@@ -216,8 +216,8 @@ def main():
                     smoother = BarSmoother(n_bars)
                     look_key = None
 
-                theme = state.get("theme", "vapor")
-                theme = theme if theme in THEMES else "vapor"
+                theme = state.get("theme", "mono")
+                theme = theme if theme in THEMES else "mono"
                 new_look = (theme, n_bars, id(spotify.art) if theme == "album" else None)
                 if new_look != look_key:
                     palette = album_palette(spotify.art, n_bars) if theme == "album" else None
@@ -229,8 +229,8 @@ def main():
 
                 target = analyzer.process(samples, state.get("sensitivity", 50), dt)
                 levels, peaks = smoother.update(target, dt)
-                style = state.get("style", "sunset")
-                img = draw_style(style if style in STYLES else "sunset", levels, peaks,
+                style = state.get("style", "ledring")
+                img = draw_style(style if style in STYLES else "ledring", levels, peaks,
                                  width, height, field, peak_colour=peak_colour_for(shown),
                                  show_peaks=bool(state.get("peaks", True)), wave=samples)
                 canvas.SetImage(img)

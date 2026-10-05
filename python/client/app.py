@@ -33,7 +33,7 @@ BAR_CHOICES = [0, 8, 16, 32, 64]
 THEME_LABELS = {"vapor": "Vapor", "classic": "Classic", "rainbow": "Rainbow",
                 "ice": "Ice", "sunset": "Sunset", "fire": "Fire", "ocean": "Ocean",
                 "forest": "Forest", "aurora": "Aurora", "amber": "Amber",
-                "mono": "Warm white", "pastel": "Pastel", "thermal": "Thermal",
+                "mono": "Warm white", "pastel": "Pastel", "thermal": "Thermal", "teal": "Teal",
                 "album": "Album cover"}
 VALID_SHARE = {"auto", "equalize", "spotipi"}
 CONFIG_INI = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "rgb_options.ini"))
@@ -117,7 +117,7 @@ def index():
     w, h = panel_size()
     return render_template("index.html", s=read_state(), dash=dashboard(),
                            themes=themes, styles=styles, bar_choices=BAR_CHOICES,
-                           panel_aspect="%d / %d" % (w, h), ui_skins=UI_SKINS)
+                           panel_aspect="%d / %d" % (w, h), ui_skins=UI_SKINS, logos=LOGOS)
 
 
 @app.route("/style/<name>.png")
@@ -128,8 +128,8 @@ def style_preview(name):
     state = read_state()
     w, h = panel_size()
     n = int(state.get("bars") or 0) or auto_bars(w)
-    theme = state.get("theme", "vapor")
-    theme = "rainbow" if theme == "album" else theme if theme in THEMES else "vapor"
+    theme = state.get("theme", "mono")
+    theme = "rainbow" if theme == "album" else theme if theme in THEMES else "mono"
     levels, peaks = sample_levels(n)
     img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme),
                still=True)
@@ -171,10 +171,10 @@ def set_brightness():
 @app.route("/look", methods=["POST"])
 def set_look():
     state = read_state()
-    style = request.form.get("style", "sunset")
-    state["style"] = style if style in STYLES else "sunset"
-    theme = request.form.get("theme", "vapor")
-    state["theme"] = theme if theme in THEMES else "vapor"
+    style = request.form.get("style", "ledring")
+    state["style"] = style if style in STYLES else "ledring"
+    theme = request.form.get("theme", "mono")
+    state["theme"] = theme if theme in THEMES else "mono"
     bars = _int("bars", 0, 0, 128)
     state["bars"] = bars if bars in BAR_CHOICES else 0
     state["peaks"] = request.form.get("peaks") == "on"
@@ -185,6 +185,70 @@ def set_look():
 
 # The control panel's skins, in the order the switch shows them. Rack first: the default.
 UI_SKINS = {"rack": "Rack", "player": "Player", "daylight": "Daylight", "silver": "Silver"}
+
+# The logos, made by image/build_logos.py. First = default.
+LOGOS = {"ledring": "LED ring", "ring": "Ring", "led": "LED grid"}
+LOGO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "image", "logos"))
+
+
+def chosen_logo():
+    key = read_state().get("logo")
+    return key if key in LOGOS else next(iter(LOGOS))
+
+
+def logo_file(key, name, mimetype=None):
+    """image/logos/<key>/<name>; key is always one of LOGOS, never typed in."""
+    path = os.path.join(LOGO_DIR, key, name)
+    if key not in LOGOS or not os.path.exists(path):
+        return Response(status=404)
+    resp = send_file(path, mimetype=mimetype)
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return logo_file(chosen_logo(), "favicon.ico", "image/x-icon")
+
+
+@app.route("/icon.svg")
+def icon_svg():
+    return logo_file(chosen_logo(), "icon.svg", "image/svg+xml")
+
+
+@app.route("/apple-touch-icon.png")
+def apple_icon():
+    return logo_file(chosen_logo(), "icon-180.png")
+
+
+@app.route("/icon-<int:px>.png")
+def icon_png(px):
+    if px not in (16, 32, 64, 192, 512):
+        return Response(status=404)
+    return logo_file(chosen_logo(), "icon-%d.png" % px)
+
+
+@app.route("/logo/<key>.png")
+def logo_preview(key):
+    return logo_file(key, "icon-192.png")
+
+
+@app.route("/manifest.webmanifest")
+def manifest():
+    v = chosen_logo()
+    return jsonify(name="Equalize", short_name="Equalize", start_url="/", display="standalone",
+                   background_color="#0f1012", theme_color="#0f1012",
+                   icons=[{"src": "/icon-192.png?v=" + v, "sizes": "192x192", "type": "image/png"},
+                          {"src": "/icon-512.png?v=" + v, "sizes": "512x512", "type": "image/png"}])
+
+
+@app.route("/logo", methods=["POST"])
+def set_logo():
+    state = read_state()
+    key = request.form.get("logo", "")
+    state["logo"] = key if key in LOGOS else next(iter(LOGOS))
+    write_state(state)
+    return done()
 
 
 @app.route("/ui", methods=["POST"])
