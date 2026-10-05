@@ -35,7 +35,7 @@ sys.dont_write_bytecode = True
 import requests
 from PIL import Image
 
-from audio_source import AirPlaySource, DemoSource, SoundDetector
+from audio_source import DemoSource, MusicSource, SoundDetector
 from display_logic import (compute_effective, effective_brightness, panel_config_paths,
                            panel_geometry, read_panel_config)
 from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for
@@ -116,7 +116,7 @@ class NoSpotify:
 def open_source(state):
     if state.get("audio_source") == "demo":
         return DemoSource()
-    return AirPlaySource()
+    return MusicSource()             # AirPlay and Spotify Connect, whichever plays
 
 
 def save_preview(img):
@@ -251,6 +251,7 @@ def main():
                 write_status({
                     "effective": effective,
                     "has_sound": has_sound,
+                    "via": getattr(source, "via", None),      # "airplay", "spotify" or None
                     "spotify_enabled": not isinstance(spotify, NoSpotify),
                     "is_playing": bool(info.get("is_playing")),
                     "song": info.get("name"),

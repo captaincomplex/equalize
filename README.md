@@ -60,11 +60,26 @@ iPhone (Spotify, Apple Music, anything)
 
 ## Using it
 
-On your iPhone, open the AirPlay picker (Control Centre → the AirPlay icon on
-the music tile, or the speaker icon in Spotify) and tick **your Sonos** *and*
-**Equalize**. Press play. That's it.
+Two ways in. The Pi makes no sound either way; your speakers do.
 
-Works from an iPhone, iPad, Mac or Apple TV, with any app. The Pi makes no sound.
+**AirPlay** (Apple Music and most apps): open the AirPlay picker (Control
+Centre → the AirPlay icon on the music tile) and tick **your Sonos** *and*
+**Equalize**. Press play. Works from an iPhone, iPad, Mac or Apple TV.
+
+**Spotify Connect** (Spotify): Spotify's iPhone app uses the older AirPlay,
+which plays to **one** speaker at a time, so it can't play to the Sonos and
+Equalize together ([Engadget](https://www.engadget.com/spotify-ios-airplay-2-support-plans-ditched-184633525.html)).
+Instead, if you said yes to Spotify Connect when installing, pick **Equalize**
+in Spotify's device list. The Pi plays the music on to the speakers ticked
+under *Spotify speakers* in the control panel (over AirPlay 2, so they stay in
+sync with each other) and draws it in step. Works from any phone with Spotify,
+guests' Android phones included. Needs Spotify Premium.
+
+```
+Spotify app --("Equalize")--> librespot (Raspotify) --pipe--> OwnTone
+    OwnTone --AirPlay 2--> your speakers
+           \--in-step copy--> Equalize --> LED panel
+```
 
 ### Styles
 Fifteen ways to draw the music, plus plain bars. The first three match the
@@ -183,6 +198,18 @@ Expect a pause of a couple of seconds while the panel changes hands.
 restarts it while the equaliser is showing, Spotipi Photo takes the panel back
 until the next AirPlay session.
 
+## Decisions
+- **5 Oct 2026: Raspotify follows its updates instead of being pinned.**
+  Everything else here is pinned to a release (shairport-sync 5.5.2, NQPTP
+  1.2.8, OwnTone 29.3). Spotify changes how it delivers music from time to
+  time, and an old librespot then stops playing: Raspotify 0.48.2 (Jul 2026)
+  says "Fixes broken audio CDN", and librespot's last tagged release (0.8.0,
+  Nov 2025) predates it. So `config/install_spotify_connect.sh` installs
+  Raspotify from its own apt repository, and `apt upgrade` keeps it working.
+- **5 Oct 2026: OwnTone is built from its release tarball.** It isn't in
+  Debian (its web interface doesn't meet Debian's rules), and the tarball
+  carries the finished web interface, so no extra tools are needed.
+
 ## Seeing it without a Pi
 
 ```bash
@@ -215,13 +242,20 @@ equalize/
 │   ├── equalize-web.service  # web panel service
 │   ├── equalize-panel        # hands the LED panel between Equalize and Spotipi Photo
 │   ├── equalize-panel.service    # runs it at boot
-│   └── equalize-panel.sudoers    # lets the AirPlay receiver run it, and nothing else
+│   ├── equalize-panel.sudoers    # lets the AirPlay receiver run it, and nothing else
+│   ├── equalize-name.sh/.service # announces equalize.local
+│   ├── equalize-door.service     # the front door on port 80 (with Spotipi Photo)
+│   ├── install_spotify_connect.sh  # the optional Spotify Connect route
+│   ├── owntone.conf, raspotify.conf, raspotify-override.conf
+│   └── equalize-spotify-watch.service
 ├── python/
 │   ├── equalize.py           # the display program
-│   ├── audio_source.py       # AirPlay loopback reader, demo pattern, silence detector
+│   ├── audio_source.py       # AirPlay and Spotify Connect readers, demo pattern, silence detector
 │   ├── spectrum.py           # sound → bar heights (FFT, bands, auto gain, gravity)
 │   ├── render.py             # bar heights → picture; colour themes
-│   ├── styles.py             # the four styles: sunset, disc, meter, equals
+│   ├── styles.py             # every style (LED ring, Ring, LED grid, Sunset ... Plasma)
+│   ├── door.py               # the front door: equalize.local / spotipi.local
+│   ├── spotify_watch.py      # hands the panel over when Spotify Connect plays
 │   ├── display_logic.py      # on/off rules, timer, quiet hours, dimmer
 │   ├── state.py              # settings file + live status
 │   ├── getSongInfo.py        # Spotify "now playing" (optional)

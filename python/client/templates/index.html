@@ -519,6 +519,16 @@
   </div>
 </section>
 
+<section class="unit" aria-labelledby="spk-h" id="spotify-unit" hidden>
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Spotify</span><span class="screw"></span></div>
+  <div class="face">
+    <h2 id="spk-h">Spotify speakers</h2>
+    <form method="post" action="/spotify/speakers" data-autosave id="speakers"></form>
+    <p class="hint">In the Spotify app, choose <b>Equalize</b> as the device. The music plays on the
+      speakers ticked here, and the panel draws it in step. AirPlay still works as before.</p>
+  </div>
+</section>
+
 <section class="unit" aria-labelledby="sched-h">
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Schedule</span><span class="screw"></span></div>
   <div class="face">
@@ -621,6 +631,28 @@ document.querySelectorAll("form[data-autosave]").forEach(form => {
     });
   });
 });
+// Spotify speakers: listed from OwnTone when the Spotify Connect route is installed
+async function loadSpeakers() {
+  try {
+    const d = await (await fetch("/spotify/speakers", { cache: "no-store" })).json();
+    if (!d.ok) return;
+    const form = $("speakers");
+    form.innerHTML = d.speakers.length ? "" : '<p class="hint">No AirPlay speakers found on the network yet.</p>';
+    d.speakers.forEach(s => {
+      const label = document.createElement("label");
+      label.className = "switch";
+      const name = document.createElement("span");
+      name.textContent = s.name;
+      const box = document.createElement("input");
+      box.type = "checkbox"; box.setAttribute("role", "switch"); box.name = "speaker"; box.value = s.id; box.checked = s.selected;
+      label.append(name, box);
+      form.append(label);
+    });
+    $("spotify-unit").hidden = false;
+  } catch (e) { /* not installed: the section stays hidden */ }
+}
+loadSpeakers();
+
 // a new logo shows at once in the header and the browser tab
 document.querySelectorAll("input[name=logo]").forEach(i => i.addEventListener("change", () => {
   const v = "?v=" + i.value + Date.now();
@@ -657,7 +689,8 @@ async function refresh() {
       : st.effective === "bars" ? "Playing" : "Waiting for music";
     $("song").innerHTML = st.song
       ? `<b>${esc(st.song)}</b> · ${esc(st.artist || "")}` : "";
-    $("st-sound").textContent = st.source === "demo" ? "demo" : st.has_sound ? "arriving" : "silent";
+    $("st-sound").textContent = st.source === "demo" ? "demo"
+      : st.has_sound ? (st.via === "spotify" ? "Spotify" : st.via === "airplay" ? "AirPlay" : "arriving") : "silent";
     $("st-panel").textContent = st.panel ? `${st.panel} · ${st.bars || "–"} bars` : "–";
     $("st-fps").textContent = st.effective === "bars" && st.fps ? st.fps : "–";
     $("st-bright").textContent = st.brightness ?? "–";

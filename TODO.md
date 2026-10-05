@@ -23,10 +23,14 @@
       (`journalctl -u shairport-sync`), and that `equalize-panel status` agrees.
 
 ## Possible later
-- [ ] Spotify Connect route (librespot + OwnTone forwarding to the Sonos by
-      AirPlay 2) for Android phones and guests, and so the phone can leave the
-      house. Researched 28 Sep 2026: OwnTone's fifo output is timed to match
-      its AirPlay outputs; librespot 0.8.0 needs Premium.
+- [x] Spotify Connect route (Raspotify + OwnTone forwarding by AirPlay 2),
+      built 5 Oct 2026, opt-in in install_pi.sh. Tested off-Pi: OwnTone 29.3
+      builds, installs and runs with config/owntone.conf; a tone fed into the
+      librespot pipe reaches Equalize's reader in 2.3 s, unchanged.
+- [ ] Spotify Connect on the real Pi: Raspotify itself couldn't be fetched
+      in the test sandbox (its network blocks dtcooper.github.io). Check:
+      "Equalize" in Spotify's device list; the Sonos in Spotify speakers;
+      bars in step with the Sonos; the panel handing over on play/stop.
 - [x] More styles: Mirror, Wave, Waterfall, Needle (4 Oct 2026), and eight more
       colour themes.
 - [ ] Look at the new styles on the real LEDs: the Needle's dim dial face, the

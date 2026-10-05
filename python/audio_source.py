@@ -6,6 +6,8 @@ AirPlaySource  the music your iPhone/iPad/Mac/Apple TV is sending to the
                plays it into an ALSA loopback -- a virtual cable inside the
                Pi (the snd-aloop kernel module). We read the other end of that
                cable with `arecord`. The Pi makes no sound; your Sonos does.
+SpotifySource  OwnTone's in-step copy of what Spotify Connect is playing.
+MusicSource    both of the above: whichever is playing.
 DemoSource     a made-up drum-and-bass-line pattern generated in code, for
                checking the panel before AirPlay is set up, and for
                tools/preview.py.
@@ -125,6 +127,126 @@ class AirPlaySource:
             except Exception:
                 pass
             self.proc = None
+
+
+# Spotify Connect: librespot (via Raspotify) plays into OwnTone, which sends
+# the music on to the speakers over AirPlay 2 and writes a copy, held back to
+# play in step with them, into this pipe. 16-bit stereo at 44.1 kHz.
+SPOTIFY_PIPE = "/var/lib/equalize/owntone-out.fifo"   # outside OwnTone's music folder
+SPOTIFY_RATE = 44100
+
+
+class SpotifySource:
+    """Reads OwnTone's in-step copy of the music. OwnTone makes the pipe anew
+    at the start of each session, so when the old one runs dry this simply
+    opens the path again."""
+
+    CHUNK = 4410 * 4                    # 100 ms of 16-bit stereo
+
+    def __init__(self, path=SPOTIFY_PIPE, buffer_size=8192):
+        self.samplerate = SPOTIFY_RATE
+        self.device_name = "Spotify Connect (via OwnTone)"
+        self.error = None
+        self.path = path
+        self.ring = _Ring(buffer_size)
+        self.last_data = 0.0
+        self._stop = False
+        threading.Thread(target=self._reader, daemon=True).start()
+
+    def _reader(self):
+        # Opened without waiting (O_NONBLOCK), so a pipe that OwnTone has
+        # already replaced can't leave us stuck waiting on the old one: every
+        # half second we check the path still leads to the pipe we hold.
+        import os
+        import select
+        while not self._stop:
+            try:
+                fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK)
+            except OSError:
+                time.sleep(1.0)
+                continue
+            inode = os.fstat(fd).st_ino
+            rest = b""
+            try:
+                while not self._stop:
+                    ready, _, _ = select.select([fd], [], [], 0.5)
+                    if ready:
+                        try:
+                            data = os.read(fd, self.CHUNK)
+                        except BlockingIOError:
+                            data = None
+                        if data:
+                            mono, rest = to_mono(rest + data)
+                            if len(mono):
+                                self.ring.push(mono)
+                            self.last_data = time.time()
+                            continue
+                        time.sleep(0.05)                 # no writer just now
+                    try:
+                        if os.stat(self.path).st_ino != inode:
+                            break                        # OwnTone made a new pipe
+                    except FileNotFoundError:
+                        break
+            finally:
+                os.close(fd)
+
+    def read(self, n):
+        if time.time() - self.last_data > 0.3:
+            return np.zeros(n, dtype=np.float32)
+        return self.ring.latest(n)
+
+    def close(self):
+        self._stop = True
+
+
+class MusicSource:
+    """AirPlay and Spotify Connect at once: draws whichever is playing. If
+    both are (unlikely), the one that was playing first keeps the panel."""
+
+    def __init__(self, airplay=None, spotify=None):
+        self.airplay = airplay if airplay is not None else AirPlaySource()
+        self.spotify = spotify if spotify is not None else SpotifySource()
+        self.current = self.airplay
+
+    def _live(self, s):
+        return time.time() - getattr(s, "last_data", 0) <= 0.3
+
+    def _active(self):
+        # Stay with the one playing; move only when it goes quiet and the
+        # other is playing.
+        if not self._live(self.current):
+            other = self.spotify if self.current is self.airplay else self.airplay
+            if self._live(other):
+                self.current = other
+        return self.current
+
+    @property
+    def samplerate(self):
+        return self._active().samplerate
+
+    @property
+    def device_name(self):
+        a = self._active()
+        return a.device_name if time.time() - getattr(a, "last_data", 0) <= 0.3 else "AirPlay or Spotify Connect"
+
+    @property
+    def error(self):
+        return self.airplay.error
+
+    @property
+    def via(self):
+        """'airplay', 'spotify' or None: where the music is coming from now."""
+        a = self._active()
+        if time.time() - getattr(a, "last_data", 0) > 0.3:
+            return None
+        return "spotify" if a is self.spotify else "airplay"
+
+    def read(self, n):
+        return self._active().read(n)
+
+    def close(self):
+        self.airplay.close()
+        self.spotify.close()
 
 
 class DemoSource:

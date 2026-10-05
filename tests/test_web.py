@@ -56,3 +56,33 @@ def test_logo_choice_changes_the_icons(monkeypatch, tmp_path):
     assert c.get("/logo/../../etc.png").status_code == 404
     c.post("/logo", data={"logo": "nonsense"})
     assert state.read_state()["logo"] == "ledring"
+
+
+def test_spotify_speakers_list_and_choice(monkeypatch, tmp_path):
+    import app as webapp
+    c = client(monkeypatch, tmp_path)
+    sent = {}
+    outputs = [{"id": "1", "name": "Living Room", "type": "AirPlay 2", "selected": False},
+               {"id": "2", "name": "Equalize panel", "type": "fifo", "selected": True}]
+
+    def fake(path, body=None, method=None):
+        if method == "PUT":
+            sent["body"] = body
+            return {}
+        return {"outputs": outputs}
+    monkeypatch.setattr(webapp, "_owntone", fake)
+    d = c.get("/spotify/speakers").get_json()
+    assert d["ok"] and [s["name"] for s in d["speakers"]] == ["Living Room"]   # the pipe isn't offered
+    assert c.post("/spotify/speakers", data={"speaker": ["1", "99"]}).status_code == 302
+    assert sent["body"] == {"outputs": ["1", "2"]}          # unknown ids dropped, the panel's copy always on
+
+
+def test_spotify_speakers_when_owntone_is_absent(monkeypatch, tmp_path):
+    import app as webapp
+    c = client(monkeypatch, tmp_path)
+
+    def down(*a, **k):
+        raise OSError("connection refused")
+    monkeypatch.setattr(webapp, "_owntone", down)
+    assert c.get("/spotify/speakers").get_json() == {"ok": False, "speakers": []}
+    assert c.post("/spotify/speakers", data={"speaker": "1"}).status_code == 502
