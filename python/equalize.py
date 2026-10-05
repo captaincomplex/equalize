@@ -38,7 +38,7 @@ from PIL import Image
 
 from audio_source import DemoSource, MusicSource, SoundDetector
 from display_logic import (compute_effective, effective_brightness, panel_config_paths,
-                           panel_geometry, read_panel_config, spotipi_root)
+                           panel_geometry, read_panel_config, should_hand_back, spotipi_root)
 from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for
 from styles import STYLES, draw as draw_style
 from spectrum import Analyzer, BarSmoother
@@ -138,6 +138,19 @@ def save_cover(art):
         log.debug("couldn't save the cover: %s", e)
 
 
+def hand_back():
+    """Ask equalize-panel to give the panel to Spotipi Photo. It stops this
+    program on the way, so it runs as its own little systemd job: started
+    from here, it would be stopped along with us half-way through."""
+    import subprocess
+    log.info("no music for a minute: handing the panel back to Spotipi Photo")
+    try:
+        subprocess.Popen(["systemd-run", "--no-block", "--collect", "--quiet",
+                          "/usr/local/bin/equalize-panel", "airplay-stop"])
+    except OSError as e:
+        log.warning("couldn't hand the panel back: %s", e)
+
+
 def _stop_on_sigterm(signum, frame):
     # systemctl stop (e.g. handing the panel to Spotipi Photo) sends SIGTERM;
     # treat it like Ctrl-C so the panel is cleared on the way out.
@@ -178,6 +191,10 @@ def main():
     last_frame = time.time()
     frame_count, fps_measured, fps_window = 0, 0.0, time.time()
 
+    started = last_sound = time.time()
+    handed_back = False
+    spotipi_here = spotipi_root() is not None
+
     log.info("equalize started: %dx%d panel, %d fps, source=%s",
              width, height, fps, source.error or source.device_name)
 
@@ -190,6 +207,8 @@ def main():
             # --- always listen, so we notice when music starts ---
             samples = source.read(FFT_SIZE)
             has_sound = detector.update(samples, now)
+            if has_sound:
+                last_sound = now
 
             # --- settings, twice a second ---
             if now - last_state_read >= STATE_READ_SECONDS:
@@ -273,6 +292,11 @@ def main():
                 if now - last_preview >= PREVIEW_SECONDS:
                     last_preview = now
                     save_preview(img)
+
+            # --- silent for a minute while sharing on Auto: give the panel back ---
+            if not handed_back and should_hand_back(state, spotipi_here, now - last_sound, now - started):
+                handed_back = True
+                hand_back()
 
             # --- status for the web dashboard ---
             frame_count += 1

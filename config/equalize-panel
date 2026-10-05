@@ -50,6 +50,10 @@ PY
 
 have_spotipi() { [ -e "$SPOTIPI_UNIT" ]; }
 
+# Every decision goes in the system log, with why:
+#   journalctl -t equalize-panel -n 30
+say() { logger -t equalize-panel "$*" 2>/dev/null || true; }
+
 # Stop the other one first, so the two never drive the panel together.
 # (equalize.service also declares Conflicts=spotipi.service as a safety net.)
 show_equalize() { $SYSTEMCTL stop spotipi.service 2>/dev/null; $SYSTEMCTL start equalize.service; }
@@ -69,14 +73,22 @@ fi
 
 mode="$(share_mode)"
 case "$cmd" in
-  airplay-start) [ "$mode" = auto ] && ! equalize_off && show_equalize ;;
-  airplay-stop)  [ "$mode" = auto ] && show_spotipi ;;
-  boot)          if [ "$mode" = equalize ]; then show_equalize; else show_spotipi; fi ;;
+  airplay-start)
+    if [ "$mode" != auto ]; then say "music started: no change (Sharing is set to $mode)"
+    elif equalize_off; then say "music started: Spotipi Photo keeps the panel (Equalize's display is Off)"
+    else say "music started: panel to Equalize"; show_equalize; fi ;;
+  airplay-stop)
+    if [ "$mode" != auto ]; then say "music stopped: no change (Sharing is set to $mode)"
+    else say "music stopped: panel to Spotipi Photo"; show_spotipi; fi ;;
+  boot)
+    if [ "$mode" = equalize ]; then say "start-up: panel to Equalize (Sharing is set to Equalize)"; show_equalize
+    else say "start-up: panel to Spotipi Photo (Sharing: $mode)"; show_spotipi; fi ;;
   use)
     case "${2:-auto}" in
-      equalize) show_equalize ;;
-      spotipi)  show_spotipi ;;
-      auto)     : ;;   # leave the panel with whoever has it; the next AirPlay start or stop decides
+      equalize) say "Sharing set to Equalize: panel to Equalize"; show_equalize ;;
+      spotipi)  say "Sharing set to Spotipi Photo: panel to Spotipi Photo"; show_spotipi ;;
+      auto)     say "Sharing set to Auto: the next music start or stop decides"
+                : ;;   # Equalize also hands back by itself after a minute without music
       *)        echo "usage: equalize-panel use auto|equalize|spotipi" >&2; exit 2 ;;
     esac ;;
   status)

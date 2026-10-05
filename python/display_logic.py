@@ -211,3 +211,22 @@ def spotipi_root(unit=SPOTIPI_UNIT):
     except OSError:
         return None
     return m.group(1) if m and os.path.isdir(m.group(1)) else None
+
+
+HAND_BACK_SILENT_S = 60.0
+
+
+def should_hand_back(state, spotipi_installed, silent_s, running_s):
+    """Should Equalize give the panel back to Spotipi Photo by itself?
+
+    Normally AirPlay's own "music stopped" hook does that. This is the safety
+    net for when the hook never comes (the panel given to Equalize by the
+    installer or by the Sharing switch while nothing plays): on Auto, after
+    a minute of silence, Spotipi Photo's pictures beat a dark panel. Not
+    while the Sharing switch is pinned to Equalize, and not in demo mode.
+    """
+    return (spotipi_installed
+            and state.get("panel_share", "auto") == "auto"
+            and state.get("audio_source") != "demo"
+            and silent_s >= HAND_BACK_SILENT_S
+            and running_s >= HAND_BACK_SILENT_S)

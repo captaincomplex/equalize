@@ -224,6 +224,10 @@ Where the two can get in each other's way, and what Equalize does about it:
   or lit in the other's quiet hours). The Sharing section lists any that
   differ, with a button that copies Spotipi Photo's values to Equalize.
 - **The two control panels** link to each other.
+- **A dark panel that stays dark**: on Auto, if Equalize has had no music for
+  a minute, it hands the panel back to Spotipi Photo by itself (AirPlay's
+  "music stopped" signal normally does this sooner). Every hand-over is
+  logged with its reason: `journalctl -t equalize-panel -n 30`.
 
 How it works: when AirPlay music starts, shairport-sync runs
 `/usr/local/bin/equalize-panel airplay-start`, which stops Spotipi Photo's
