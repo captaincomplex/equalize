@@ -74,7 +74,7 @@ def ring(small=False):
     out = []
     n = 18 if small else 36
     r0 = 96
-    w0, grow = (10, 0.26) if small else (6, 0.15)       # width at the circle, and per unit of length
+    w0, grow = (12, 0.10) if small else (9, 0.06)       # a gentle taper: about 1.5x wider at the tip       # width at the circle, and per unit of length
     for k in range(n):
         a = 2 * math.pi * k / n
         length = 50 + 70 * loudness(a)

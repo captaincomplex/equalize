@@ -26,8 +26,9 @@ styles.py -- the four ways Equalize can draw the music, one per logo.
     ring    rays around an empty circle, longer where louder (the Ring logo)
     dots    big round "LEDs" in columns, the unlit ones faintly showing (the
             LED grid logo)
-    dance   Dance Dance Revolution: four lanes (bass, low-mid, high-mid,
-            treble) send arrows scrolling up to a row of targets on each beat
+    dance   Dance Dance Revolution: four lanes (or eight, with diagonals),
+            lowest notes on the left, send rounded arrows scrolling up to a
+            row of targets on each beat
     bars    the plain equaliser from render.py
 
 Every style takes the same inputs -- a level and a peak (0..1) per bar and a
@@ -685,7 +686,7 @@ def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True)
     d.ellipse([cx - r0 + 2, cy - r0 + 2, cx + r0 - 2, cy + r0 - 2],
               outline=tuple(int(v) for v in field[rows // 2, mid] * 0.7), width=1)
     n = max(10, min(32, int(2 * math.pi * r0 / 3.4)))          # room between spokes
-    w_end = max(1.0, 2 * math.pi * (r0 + reach) / n * 0.55)    # tip width: just over half the gap
+    w_end = 2.0 if size >= 48 else 1.0                         # a gentle taper: 1 LED at the circle, 2 at the tip
     for a, lv, pk, i in _around(levels, peaks, n):
         ca, sa = math.cos(a), math.sin(a)
         px, py = -sa, ca
@@ -739,69 +740,116 @@ def draw_dots(levels, peaks, width, height, field, peak_colour, show_peaks=True)
 # arrow appears at the bottom and scrolls up to that lane's target at the
 # top, which flashes as it arrives. Like the waterfall, it keeps a little
 # state per panel size: the arrows on screen and each lane's recent level.
-DANCE_LANES = ("left", "down", "up", "right")
+# Lanes left to right, lowest notes first. Four: the classic left, down, up,
+# right. Eight: the diagonals too, the left-pointing ones on the left and
+# the right-pointing ones on the right, with down and up in the middle.
+DANCE_LANES = {4: ("W", "S", "N", "E"),
+               8: ("W", "NW", "SW", "S", "N", "SE", "NE", "E")}
+_ANGLE = {"N": 0, "NE": -45, "E": -90, "SE": -135, "S": 180, "SW": 135, "W": 90, "NW": 45}
 _dance = {}
 
 
-@lru_cache(maxsize=16)
-def _arrow(size, direction):
-    """An arrow sprite: (fill, outline) masks, size x size, pointing the way."""
+def _pixel_arrow(size, diagonal):
+    """A small arrow built pixel by pixel (under 11 LEDs, where smoothing
+    only blurs it): pointing up, or up-right if diagonal. Its corners are
+    trimmed so it still reads as rounded."""
     n = size
-    y, x = np.mgrid[0:n, 0:n].astype(float)
-    c = (n - 1) / 2
-    head_h = n * 0.55                                        # the triangle's height
-    # pointing up: a triangle on top, a stem below
-    tri = (y <= head_h) & (np.abs(x - c) <= (y + 0.5) * (c + 0.5) / max(head_h, 1))
-    stem_w = max(1.0, n * 0.18)
-    stem = (y > head_h - 0.5) & (np.abs(x - c) <= stem_w)
-    fill = tri | stem
-    # outline: the fill's edge
+    y, x = np.mgrid[0:n, 0:n]
+    if not diagonal:
+        c = n // 2
+        head_rows = (n + 1) // 2
+        head = (y < head_rows) & (np.abs(x - c) <= y)
+        shaft = (y >= head_rows) & (np.abs(x - c) <= max(0, n // 6))
+        fill = head | shaft
+        fill[head_rows - 1, 0] = fill[head_rows - 1, n - 1] = False      # round the wing tips
+    else:
+        h = (n - 1) // 2                                     # the head's leg length
+        head = ((n - 1 - x) + y <= h + 1) & (x >= n - 2 - h) & (y <= h + 1)
+        shaft = np.abs(x + y - (n - 1)) <= max(1, n // 10)    # 3 LEDs wide up to 19
+        shaft &= (x <= n - 2) & (y >= 1)
+        fill = head | shaft
+        fill[0, n - 1] = False                               # round the point a touch
+    return fill
+
+
+@lru_cache(maxsize=64)
+def _arrow(size, direction):
+    """An arrow sprite: (fill, outline) masks, size x size. Small ones are
+    built pixel by pixel; bigger ones are drawn
+    eight times bigger, its corners softened, turned to point the way, then
+    shrunk to LED size."""
+    from PIL import ImageFilter
+    if size < 11 or len(direction) == 2:                    # diagonals: always pixel-built
+        turns = {"N": 0, "W": 1, "S": 2, "E": 3, "NE": 0, "NW": 1, "SW": 2, "SE": 3}[direction]
+        fill = np.rot90(_pixel_arrow(size, len(direction) == 2), turns)
+        pad = np.pad(fill, 1)
+        inner = pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:]
+        return fill.copy(), (fill & ~inner).copy()
+    k = 8
+    big = size * k
+    img = Image.new("L", (big, big))
+    d = ImageDraw.Draw(img)
+    c = big / 2
+    # Kept inside a circle round the middle, so turning it 45 degrees for a
+    # diagonal never clips it: tip at the top of the circle, wings and tail
+    # inside it.
+    r = big * 0.48
+    tip, wing, tail = c - r, c + r * 0.10, c + r * 0.95
+    half_w = r * 0.88                                        # the head's half-width
+    stem = r * 0.24                                          # the stem's half-width
+    d.polygon([(c, tip), (c + half_w, wing), (c + stem, wing), (c + stem, tail),
+               (c - stem, tail), (c - stem, wing), (c - half_w, wing)], fill=255)
+    img = img.filter(ImageFilter.GaussianBlur(big * 0.045)).point(lambda v: 255 if v > 110 else 0)
+    img = img.rotate(_ANGLE[direction], resample=Image.BICUBIC)
+    small = np.asarray(img.resize((size, size), Image.BOX), dtype=float) / 255
+    fill = small > 0.45
     pad = np.pad(fill, 1)
     inner = pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:]
-    edge = fill & ~inner
-    turns = {"up": 0, "left": 1, "down": 2, "right": 3}[direction]
-    return np.rot90(fill, turns).copy(), np.rot90(edge, turns).copy()
+    return fill, fill & ~inner
 
 
 class _Dance:
     def __init__(self):
         self.arrows = []                                     # [lane, y (float, from the top)]
-        self.avg = np.zeros(4)
-        self.cool = np.zeros(4)                              # frames until a lane may fire again
-        self.flash = np.zeros(4)
+        self.avg = np.zeros(8)
+        self.cool = np.zeros(8)                              # frames until a lane may fire again
+        self.flash = np.zeros(8)
 
 
-def _lane_levels(levels):
+def _lane_levels(levels, lanes):
     lv = np.asarray(levels, dtype=float)
-    return np.array([g.max() if len(g) else 0.0 for g in np.array_split(lv, 4)])
+    return np.array([g.max() if len(g) else 0.0 for g in np.array_split(lv, lanes)])
 
 
-def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False):
+def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False, lanes_n=4):
     img = np.zeros((height, width, 3), dtype=np.uint8)
-    lane_w = width / 4
-    size = int(max(5, min(lane_w - 2, height / 4)))
+    # eight lanes need room: at least 7 LEDs each, or it's four
+    lanes_n = 8 if lanes_n == 8 and width / 8 >= 7 else 4
+    names = DANCE_LANES[lanes_n]
+    lane_w = width / lanes_n
+    size = int(max(5, min(lane_w - 1, height / 4)))
     size -= (size % 2 == 0)                                  # odd, so the arrow has a middle
     top = 1
     speed = max(1.0, height / 40)                            # rows per frame: about a second to cross
     n = field.shape[1]
     rows = len(field) - 1
-    lanes = _lane_levels(levels)
+    lanes = _lane_levels(levels, lanes_n)
     if still:
         st = _Dance()
         rng = np.random.default_rng(4)
-        for lane in range(4):                                # a made-up few beats for the still
+        for lane in range(lanes_n):                                # a made-up few beats for the still
             for k in range(3):
                 if rng.random() < 0.55 + 0.4 * lanes[lane]:
                     st.arrows.append([lane, top + size + 4 + k * (height - size) / 3 + lane * 3])
-        st.flash[:] = (lanes > 0.5) * 6
+        st.flash[:lanes_n] = (lanes > 0.5) * 6
     else:
-        key = (width, height)
+        key = (width, height, lanes_n)
         st = _dance.get(key)
         if st is None:
             _dance.clear()
             st = _dance[key] = _Dance()
         # a lane "hits" when it jumps well above its own recent level
-        for lane in range(4):
+        for lane in range(lanes_n):
             v = lanes[lane]
             if st.cool[lane] <= 0 and v > 0.25 and v > st.avg[lane] * 1.35 + 0.06:
                 st.arrows.append([lane, float(height)])
@@ -817,7 +865,7 @@ def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True
         st.flash = np.maximum(st.flash - 1, 0)
 
     def colour(lane, bright):
-        i = min(n - 1, int((lane + 0.5) / 4 * n))
+        i = min(n - 1, int((lane + 0.5) / lanes_n * n))
         return field[int(bright * rows), i]
 
     def stamp(mask, x0, y0, col):
@@ -827,7 +875,7 @@ def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True
         ok = (ys >= 0) & (ys < height) & (xs >= 0) & (xs < width)
         img[ys[ok], xs[ok]] = np.asarray(col).astype(np.uint8)
 
-    for lane, direction in enumerate(DANCE_LANES):
+    for lane, direction in enumerate(names):
         x0 = int(round(lane * lane_w + (lane_w - size) / 2))
         fill, edge = _arrow(size, direction)
         # the target: an outline, lit up while an arrow arrives
@@ -837,14 +885,14 @@ def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True
         stamp(edge, x0, top, np.maximum(colour(lane, 0.6) * 0.5, 40) if f == 0 else colour(lane, 1.0))
     for lane, y in st.arrows:
         x0 = int(round(lane * lane_w + (lane_w - size) / 2))
-        fill, edge = _arrow(size, DANCE_LANES[lane])
+        fill, edge = _arrow(size, names[lane])
         stamp(fill, x0, int(round(y)), colour(lane, 0.75))
         stamp(edge, x0, int(round(y)), np.minimum(255, colour(lane, 1.0) * 1.1 + 25))
     return Image.fromarray(img, "RGB")
 
 
 def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peaks=True, still=False,
-         wave=None):
+         wave=None, dance_lanes=4):
     """Draw one frame in the named style. Unknown names fall back to sunset.
     still=True is for a single picture (the web panel's style picker), where
     the waterfall and trails have no real history to show and make one up.
@@ -855,7 +903,7 @@ def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peak
     if style == "waterfall":
         return draw_waterfall(levels, peaks, width, height, field, peak_colour, show_peaks, still)
     if style == "dance":
-        return draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks, still)
+        return draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks, still, lanes_n=dance_lanes)
     if style == "trails":
         return draw_trails(levels, peaks, width, height, field, peak_colour, show_peaks, still)
     if style == "scope":

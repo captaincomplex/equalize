@@ -216,3 +216,21 @@ def test_dance_sends_arrows_up_on_a_beat_without_overlaps():
     assert left, "the bass lane sent arrows"
     assert all(b - a >= 12 for a, b in zip(left, left[1:]))   # spaced at least an arrow apart
     assert not [1 for lane, _ in st.arrows if lane == 3]      # no treble, no right arrows
+
+
+def test_dance_eight_lanes_and_round_arrows():
+    from styles import _arrow, draw_dance
+    n = auto_bars(64)
+    f = colour_field("rainbow", n, 64)
+    lv, pk = sample_levels(n)
+    four = np.asarray(draw_dance(lv, pk, 64, 64, f, None, still=True, lanes_n=4))
+    eight = np.asarray(draw_dance(lv, pk, 64, 64, f, None, still=True, lanes_n=8))
+    assert not (four == eight).all()
+    narrow = np.asarray(draw_dance(lv, pk, 32, 32, colour_field("rainbow", 8, 32), None, still=True, lanes_n=8))
+    assert narrow.any()                                       # too narrow for 8: falls back to 4
+    fill, _ = _arrow(15, "N")
+    assert not fill[0, 0] and not fill[0, -1]                 # corners empty
+    assert fill[1:4, 7].any()                                 # the tip is there
+    ne, _ = _arrow(15, "NE")
+    head, tail = ne[:7, 8:].sum(), ne[8:, :7].sum()
+    assert head > tail * 1.5                                  # the heavy end, the head, is up and right

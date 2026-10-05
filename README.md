@@ -90,8 +90,12 @@ logos (you choose the logo at the bottom of the control panel):
 - **LED grid**: big round "LEDs" in columns, the unlit ones faintly showing.
 
 - **Dance** (best in Rainbow): Dance Dance Revolution. Four lanes, ← bass,
-  ↓ low-mid, ↑ high-mid, → treble; each time a lane's part of the music hits,
-  an arrow scrolls up to its target, which flashes as it arrives.
+  ↓ low-mid, ↑ high-mid, → treble, or eight with the diagonals (← ↖ ↙ ↓ ↑ ↘ ↗ →,
+  lowest notes on the left; a panel at least 64 wide). Each time a lane's
+  part of the music hits, a rounded arrow scrolls up to its target, which
+  flashes as it arrives. Choose 4 or 8 under *Dance arrows*.
+
+  ![Dance with 8 arrows](docs/style-dance8.gif)
 
 The next four come from the first logo designs, and the last four from the
 music players of the early 2000s:

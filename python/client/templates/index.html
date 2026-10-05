@@ -466,6 +466,13 @@
         {% endfor %}
       </div>
 
+      <h3 id="lanes-l">Dance arrows</h3>
+      <div class="seg" style="--n:2" role="radiogroup" aria-labelledby="lanes-l">
+        <label><input type="radio" name="dance_lanes" value="4" {{ 'checked' if s.dance_lanes != 8 }}><span>4 arrows</span></label>
+        <label><input type="radio" name="dance_lanes" value="8" {{ 'checked' if s.dance_lanes == 8 }}><span>8 with diagonals</span></label>
+      </div>
+      <p class="hint">For the Dance style. Eight need a panel at least 64 LEDs wide.</p>
+
       <h3 id="sens-l">Sensitivity</h3>
       <div class="slider">
         <input type="range" name="sensitivity" min="1" max="100" value="{{ s.sensitivity }}" aria-labelledby="sens-l">

@@ -232,7 +232,8 @@ def main():
                 style = state.get("style", "ledring")
                 img = draw_style(style if style in STYLES else "ledring", levels, peaks,
                                  width, height, field, peak_colour=peak_colour_for(shown),
-                                 show_peaks=bool(state.get("peaks", True)), wave=samples)
+                                 show_peaks=bool(state.get("peaks", True)), wave=samples,
+                                 dance_lanes=int(state.get("dance_lanes", 4)))
                 canvas.SetImage(img)
                 canvas = matrix.SwapOnVSync(canvas)
 

@@ -132,7 +132,7 @@ def style_preview(name):
     theme = "rainbow" if theme == "album" else theme if theme in THEMES else "mono"
     levels, peaks = sample_levels(n)
     img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme),
-               still=True)
+               still=True, dance_lanes=int(state.get("dance_lanes", 4)))
     buf = io.BytesIO()
     img.save(buf, "PNG")
     return Response(buf.getvalue(), mimetype="image/png", headers={"Cache-Control": "no-store"})
@@ -179,6 +179,7 @@ def set_look():
     state["bars"] = bars if bars in BAR_CHOICES else 0
     state["peaks"] = request.form.get("peaks") == "on"
     state["sensitivity"] = _int("sensitivity", 50, 1, 100)
+    state["dance_lanes"] = 8 if request.form.get("dance_lanes") == "8" else 4
     write_state(state)
     return done()
 
