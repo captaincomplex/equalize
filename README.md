@@ -149,7 +149,8 @@ cover it shows *warm white*. Or choose vapor, classic, rainbow, ice, sunset,
 fire, ocean, forest, aurora, amber, warm white, pastel, thermal, teal or
 phosphor), **number of bars** (Auto, 4, 8, 16, 32 or 64), **sensitivity**,
 **peak caps**, the **song name** along the bottom of the panel (off, for a few
-seconds when the song changes, or always), a **screen timer**, **quiet hours**
+seconds when the song changes, or always; in ChicagoFLF, a public-domain copy
+of the original Macintosh lettering, 14 LEDs tall), a **screen timer**, **quiet hours**
 and a **sunrise/sunset dimmer**, all as in Spotipi Photo. A live dashboard shows
 a snapshot of the panel, the song, where the colours are coming from, and the
 frame rate. Every section of the control panel folds away; *Colours* and
@@ -246,6 +247,11 @@ restarts it while the equaliser is showing, Spotipi Photo takes the panel back
 until the next AirPlay session.
 
 ## Decisions
+
+- **5 Oct 2026: the song name is drawn in ChicagoFLF**, chosen from a
+  shortlist (Spleen, X11 Fixed, Tom Thumb, Silkscreen, Press Start 2P, TeX
+  Gyre Heros, Inter, Hanken Grotesk) as the easiest to read across a room. Public domain: the
+  designer's statement is in `python/fonts/README-ChicagoFLF.txt`.
 - **5 Oct 2026: Raspotify follows its updates instead of being pinned.**
   Everything else here is pinned to a release (shairport-sync 5.5.2, NQPTP
   1.2.8, OwnTone 29.3). Spotify changes how it delivers music from time to

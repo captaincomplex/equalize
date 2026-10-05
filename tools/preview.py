@@ -25,7 +25,7 @@ from audio_source import DemoSource  # noqa: E402
 from render import THEMES, auto_bars, colour_field, peak_colour_for  # noqa: E402
 from styles import STYLES, draw  # noqa: E402
 from spectrum import Analyzer, BarSmoother  # noqa: E402
-from song_info import STRIP_H, Banner, text_colour  # noqa: E402
+from song_info import Banner, strip_height, text_colour  # noqa: E402
 
 FFT = 2048
 
@@ -102,7 +102,7 @@ def main():
         samples = read(t)
         levels, peaks = smoother.update(analyzer.process(samples, 50, dt), dt)
         strip = bool(a.song) and banner.showing(a.song_mode, width, t)
-        pic_h = height - STRIP_H if strip and a.song_mode == "always" else height
+        pic_h = height - strip_height() if strip and a.song_mode == "always" else height
         frame = draw(a.style, levels, peaks, width, pic_h,
                      field if pic_h == height else field[np.linspace(0, height - 1, pic_h).astype(int)],
                      peak_colour=peak_colour_for(a.theme), wave=samples, dance_lanes=a.dance_lanes, dt=dt)

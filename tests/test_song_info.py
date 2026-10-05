@@ -7,7 +7,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 
-from song_info import (STRIP_H, AirPlayMeta, Banner, now_playing, parse_items,  # noqa: E402
+from song_info import (strip_height, AirPlayMeta, Banner, now_playing, parse_items,  # noqa: E402
                        song_line, text_mask)
 
 
@@ -53,7 +53,7 @@ def test_now_playing_prefers_the_source_that_is_playing():
 def test_song_line_makes_any_name_printable():
     assert song_line(("Kraków – Łódź", "Sigur Rós")) == "Kraków - Lódz - Sigur Rós"
     assert song_line(("東京", "")) == ""                      # unprintable letters are left out, no crash
-    assert text_mask("Hello").shape[0] == 11
+    assert text_mask("Hello").shape[0] == 14 and strip_height() == 15
 
 
 def test_banner_scrolls_a_long_name_and_centres_a_short_one():
@@ -61,8 +61,8 @@ def test_banner_scrolls_a_long_name_and_centres_a_short_one():
     b.update(("Hi", ""), now=0.0)
     img = b.draw(Image.new("RGB", (64, 64), (50, 50, 50)), (255, 0, 0), now=0.0)
     a = np.asarray(img)
-    assert (a[:64 - STRIP_H] == 50).all()                    # the picture above is untouched
-    lit = np.nonzero(a[64 - STRIP_H:, :, 0] == 255)[1]
+    assert (a[:64 - strip_height()] == 50).all()                    # the picture above is untouched
+    lit = np.nonzero(a[64 - strip_height():, :, 0] == 255)[1]
     assert abs((lit.min() + lit.max()) / 2 - 31.5) <= 1     # centred
     b.update(("A song with a very long name indeed", "Somebody"), now=10.0)
     first = np.asarray(b.draw(Image.new("RGB", (64, 64)), (255, 0, 0), now=11.0))
