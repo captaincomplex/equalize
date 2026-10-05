@@ -30,6 +30,7 @@ FONT = os.path.join(HERE, "fonts", "BarlowSemiCondensed-Bold.ttf")
 DEFAULT = "ledring"
 LOGOS = ("ledring", "ring", "led")
 WARM, UNLIT, GROUND = "#FFF3DE", "#2A2724", "#141210"
+UNLIT_DOT = "#211E1B"          # the LED ring's unlit dots: big, so quieter than the grid's
 TEAL, DEEP = "#3FE0C5", "#0B1F2A"
 
 
@@ -46,32 +47,47 @@ def loudness(a):
 
 
 def ledring(small=False):
-    n_rays, n_rings = (12, 3) if small else (24, 6)
-    r_in, step, dot = (110, 62, 26) if small else (92, 26, 9.5)
+    """Rings of dots that grow as they go out: each circle's dots are bigger
+    than the last, so the ring opens out like a ripple."""
+    n_rays, n_rings = (12, 3) if small else (24, 5)
     out = []
+    # radius of each ring, and of its dots: both grow outward
+    if small:
+        radii, dots = (104, 162, 228), (17, 23, 30)
+    else:
+        radii, dots = (88, 118, 152, 190, 232), (7, 9.5, 12, 14.5, 17)
     for k in range(n_rays):
         a = 2 * math.pi * k / n_rays - math.pi / 2
         # the inner third always lit (the ring itself), the rest by loudness
-        base = max(1, n_rings // 3)
-        lit = base + round((n_rings - base - 1) * loudness(a + math.pi / 2))
+        base = 1 if small else 2
+        lit = base + round((n_rings - base) * loudness(a + math.pi / 2))
         for j in range(n_rings):
-            r = r_in + j * step
+            r = radii[j]
             out.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s"/>'
-                       % (256 + r * math.cos(a), 256 + r * math.sin(a), dot, WARM if j < lit else UNLIT))
+                       % (256 + r * math.cos(a), 256 + r * math.sin(a), dots[j], WARM if j < lit else UNLIT_DOT))
     return tile(GROUND, "".join(out))
 
 
 def ring(small=False):
+    """Rays round a circle, longer where it's louder, and widening as they go
+    out: each one a thin wedge from the circle."""
     out = []
     n = 18 if small else 36
-    width = 26 if small else 15
+    r0 = 96
+    w0, grow = (12, 0.10) if small else (9, 0.06)       # a gentle taper: about 1.5x wider at the tip       # width at the circle, and per unit of length
     for k in range(n):
         a = 2 * math.pi * k / n
         length = 50 + 70 * loudness(a)
-        r0 = 96
-        out.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%d" stroke-linecap="round"/>'
-                   % (256 + r0 * math.cos(a), 256 + r0 * math.sin(a),
-                      256 + (r0 + length) * math.cos(a), 256 + (r0 + length) * math.sin(a), TEAL, width))
+        r1 = r0 + length
+        w1 = w0 + grow * length
+        ca, sa = math.cos(a), math.sin(a)
+        px, py = -sa, ca                                  # across the ray
+        pts = [(256 + r0 * ca + px * w0 / 2, 256 + r0 * sa + py * w0 / 2),
+               (256 + r1 * ca + px * w1 / 2, 256 + r1 * sa + py * w1 / 2),
+               (256 + r1 * ca - px * w1 / 2, 256 + r1 * sa - py * w1 / 2),
+               (256 + r0 * ca - px * w0 / 2, 256 + r0 * sa - py * w0 / 2)]
+        out.append('<polygon points="%s" fill="%s" stroke="%s" stroke-width="2" stroke-linejoin="round"/>'
+                   % (" ".join("%.1f,%.1f" % p for p in pts), TEAL, TEAL))
     out.append('<circle cx="256" cy="256" r="58" fill="none" stroke="%s" stroke-width="%d"/>' % (TEAL, 22 if small else 14))
     return tile(DEEP, "".join(out))
 

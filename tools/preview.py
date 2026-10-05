@@ -67,6 +67,7 @@ def main():
     ap.add_argument("--fps", type=int, default=25)
     ap.add_argument("--wav")
     ap.add_argument("--scale", type=int, default=6)
+    ap.add_argument("--dance-lanes", type=int, default=4, choices=(4, 8))
     ap.add_argument("--out", default="preview.gif")
     ap.add_argument("--still", help="also save one frame (at this second) as a PNG")
     a = ap.parse_args()
@@ -94,7 +95,7 @@ def main():
         samples = read(t)
         levels, peaks = smoother.update(analyzer.process(samples, 50, dt), dt)
         frame = draw(a.style, levels, peaks, width, height, field,
-                     peak_colour=peak_colour_for(a.theme), wave=samples)
+                     peak_colour=peak_colour_for(a.theme), wave=samples, dance_lanes=a.dance_lanes)
         frames.append(as_leds(frame, a.scale))
         if a.still and abs(t - float(a.still)) < dt / 2:
             frames[-1].save(os.path.splitext(a.out)[0] + ".png")

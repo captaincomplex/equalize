@@ -91,3 +91,18 @@ Equalize has two (`equalize` and `equalize-web`), plus shairport-sync's own.
 
 **Token (Spotify).** The saved login that lets Equalize ask Spotify "what's
 playing?" without your password. Optional in Equalize.
+
+**Spotify Connect.** Spotify's own way of playing on another device: you pick
+the device in the Spotify app, and that device fetches and plays the music
+itself. The phone is only the remote control.
+
+**librespot / Raspotify.** librespot is free software that makes a computer
+appear as a Spotify Connect device. Raspotify packages it for Raspberry Pi
+and keeps it updated.
+
+**OwnTone.** A free music server. Here it takes the music librespot plays and
+sends it on to your speakers over AirPlay 2, and writes an in-step copy for
+the LED panel.
+
+**Named pipe (FIFO).** A file that is really a tube: one program writes into
+it and another reads out of it, without anything being stored.

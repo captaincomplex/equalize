@@ -134,3 +134,56 @@ def test_airplay_reader_keeps_bytes_split_between_reads():
     want = stereo.mean(axis=1) / 32768.0
     assert len(got) == len(want)
     assert np.allclose(got, want, atol=1e-6)
+
+
+def test_spotify_pipe_is_read_and_reopened(tmp_path):
+    # OwnTone writes 16-bit stereo into a named pipe, and makes the pipe anew
+    # each session: the reader must pick up the new one.
+    import os
+    import threading
+    import time
+    from audio_source import SpotifySource
+    path = str(tmp_path / "out.fifo")
+    os.mkfifo(path)
+    src = SpotifySource(path=path)
+    tone = (np.sin(np.arange(4410) * 0.1)[:, None] * [9000, 9000]).astype("<i2").tobytes()
+
+    def write_session():
+        with open(path, "wb", buffering=0) as f:
+            for _ in range(5):
+                f.write(tone)
+                time.sleep(0.02)
+
+    write_session()
+    time.sleep(0.2)
+    assert abs(src.read(2048)).max() > 0.2                    # music arrived
+    os.remove(path)
+    os.mkfifo(path)                                           # a new session, a new pipe
+    time.sleep(1.5)
+    threading.Thread(target=write_session).start()
+    time.sleep(0.3)
+    assert abs(src.read(2048)).max() > 0.2                    # ...and it was found
+    src.close()
+
+
+def test_music_source_follows_whichever_is_playing():
+    import time
+    from audio_source import MusicSource
+
+    class Fake:
+        def __init__(self, rate, name):
+            self.samplerate, self.device_name, self.error, self.last_data = rate, name, None, 0.0
+        def read(self, n):
+            return np.ones(n, dtype=np.float32) * (1 if self.samplerate == 48000 else 2)
+        def close(self):
+            pass
+
+    air, spot = Fake(48000, "AirPlay"), Fake(44100, "Spotify")
+    m = MusicSource(airplay=air, spotify=spot)
+    assert m.via is None
+    spot.last_data = time.time()
+    assert m.via == "spotify" and m.samplerate == 44100 and m.read(4)[0] == 2
+    air.last_data = time.time()                               # both playing: Spotify keeps it
+    assert m.via == "spotify"
+    spot.last_data = 0.0                                      # Spotify stops
+    assert m.via == "airplay" and m.samplerate == 48000

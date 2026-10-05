@@ -6,6 +6,7 @@
 #
 #   equalize-panel airplay-start   AirPlay music started   (run by shairport-sync)
 #   equalize-panel airplay-stop    AirPlay quiet for 10 s  (run by shairport-sync)
+#                                  (spotify_watch.py does the same two for Spotify Connect)
 #   equalize-panel boot            at start-up             (equalize-panel.service)
 #   equalize-panel use auto|equalize|spotipi               (the web panel)
 #   equalize-panel status          which one has the panel

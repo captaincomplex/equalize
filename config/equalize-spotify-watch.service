@@ -1,0 +1,13 @@
+[Unit]
+Description=Equalize: hand the LED panel over when Spotify Connect plays
+After=owntone.service
+Wants=owntone.service
+
+[Service]
+# ExecStart is appended by install_pi.sh. Root, so it can run equalize-panel.
+Environment=PYTHONDONTWRITEBYTECODE=1
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

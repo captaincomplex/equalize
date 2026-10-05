@@ -314,74 +314,6 @@
   [data-ui=player] .toast.err { color: #ffcc33; }
 
   /* ================================================================
-     DAYLIGHT: pale 1960s German hi-fi, at full strength. Warm white,
-     black type set big, heavy rules between sections, and one orange
-     that fills whatever is chosen. For a bright room.
-     ================================================================ */
-  [data-ui=daylight] {
-    --ground: #f3f0e9; --ink: #161615; --muted: #5a5750; --line: #161615; --slot: #e2ddd2;
-    --orange: #e8590c; --focus: #e8590c; --select-bg: #e8590c; --select-fg: #fff;
-    --on: #2f9e44; --amber: #e8590c;
-    background: var(--ground); color: var(--ink); color-scheme: light;
-  }
-  [data-ui=daylight] body { background: var(--ground); }
-  [data-ui=daylight] main { padding-left: 18px; padding-right: 18px; }
-  [data-ui=daylight] .brand { margin: 10px 0 18px; padding-bottom: 14px; border-bottom: 6px solid var(--ink); }
-  [data-ui=daylight] .brand h1 { font: 600 46px/.9 var(--body); letter-spacing: -.03em; text-transform: lowercase; color: var(--ink); }
-  [data-ui=daylight] .brand h1 img { width: 40px; height: 40px; border-radius: 10px; }
-  [data-ui=daylight] .skin-switch { gap: 2px; }
-  [data-ui=daylight] .skin-switch span { color: var(--muted); font: 500 15px/1 var(--body); letter-spacing: 0; text-transform: lowercase; padding: 8px 8px; }
-  [data-ui=daylight] .skin-switch input:checked + span { color: var(--orange); font-weight: 600; text-decoration: underline 3px; text-underline-offset: 6px; }
-  [data-ui=daylight] .unit { display: block; background: none; margin: 0 0 8px; padding-top: 4px; border-top: 3px solid var(--ink); }
-  [data-ui=daylight] .brand + .unit { border-top: 0; padding-top: 0; }
-  [data-ui=daylight] .ear { display: none; }
-  [data-ui=daylight] .face { padding: 14px 0 22px; }
-  [data-ui=daylight] .face h2 { font: 600 34px/1 var(--body); letter-spacing: -.025em; text-transform: lowercase; color: var(--ink); margin-bottom: 18px; }
-  [data-ui=daylight] h3 { font: 600 17px/1.2 var(--body); letter-spacing: -.01em; text-transform: lowercase; color: var(--ink); margin-top: 24px; }
-  [data-ui=daylight] .hint { color: var(--muted); font-size: 15px; }
-  [data-ui=daylight] .hint b { color: var(--ink); }
-  [data-ui=daylight] hr { background: var(--slot); height: 2px; }
-  [data-ui=daylight] .panel { padding: 12px; background: #111; border-radius: 18px; }
-  [data-ui=daylight] .readout { background: transparent; padding: 16px 0 0; }
-  [data-ui=daylight] .headline { font: 600 26px/1.1 var(--body); letter-spacing: -.02em; text-transform: lowercase; color: var(--ink); }
-  [data-ui=daylight] .dot { width: 14px; height: 14px; }
-  [data-ui=daylight] .song { color: var(--muted); font-size: 17px; }
-  [data-ui=daylight] .chips { font: 500 13px/1.2 var(--body); color: var(--muted); gap: 14px 14px; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); text-transform: lowercase; }
-  [data-ui=daylight] .chips li { display: flex; flex-direction: column-reverse; gap: 2px; }
-  [data-ui=daylight] .chips b { font: 600 24px/1 var(--body); letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
-  [data-ui=daylight] .problem { background: var(--orange); color: #fff; border-radius: 0; font-weight: 500; }
-  [data-ui=daylight] .seg { gap: 6px; }
-  [data-ui=daylight] .seg span { min-height: 52px; border-radius: 999px; background: var(--slot); color: var(--ink); font: 500 17px/1.1 var(--body); letter-spacing: -.01em; text-transform: lowercase; transition: background .15s ease-out, color .15s ease-out; }
-  [data-ui=daylight] .seg label:hover span { background: #d6d0c3; }
-  [data-ui=daylight] .seg input:checked + span { background: var(--orange); color: #fff; font-weight: 600; }
-  [data-ui=daylight] input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--ink) var(--fill, 50%), var(--slot) var(--fill, 50%)); }
-  [data-ui=daylight] input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--slot); }
-  [data-ui=daylight] input[type=range]::-moz-range-progress { height: 6px; background: var(--ink); }
-  [data-ui=daylight] input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 34px; height: 34px; margin-top: -14px; border-radius: 50%; border: 0; background: var(--orange); box-shadow: 0 2px 6px rgba(120,40,0,.35); }
-  [data-ui=daylight] input[type=range]::-moz-range-thumb { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--orange); box-shadow: 0 2px 6px rgba(120,40,0,.35); }
-  [data-ui=daylight] .slider output { font: 600 30px/1 var(--body); letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; min-width: 2.2ch; }
-  [data-ui=daylight] .style img { border-radius: 14px; }
-  [data-ui=daylight] .style .name { font: 500 14px/1.2 var(--body); letter-spacing: 0; text-transform: lowercase; color: var(--muted); }
-  [data-ui=daylight] .style input:checked ~ img { box-shadow: 0 0 0 4px var(--orange); }
-  [data-ui=daylight] .style input:checked ~ .name { color: var(--orange); font-weight: 600; }
-  [data-ui=daylight] .swatch .chip { border-radius: 999px; height: 34px; }
-  [data-ui=daylight] .swatch .name { color: var(--muted); text-transform: lowercase; }
-  [data-ui=daylight] .swatch input:checked + .chip { box-shadow: 0 0 0 4px var(--orange); }
-  [data-ui=daylight] .swatch input:checked ~ .name { color: var(--orange); font-weight: 600; }
-  [data-ui=daylight] .logo-pick .name { color: var(--muted); text-transform: lowercase; }
-  [data-ui=daylight] .logo-pick input:checked ~ img { box-shadow: 0 0 0 4px var(--orange); }
-  [data-ui=daylight] .logo-pick input:checked ~ .name { color: var(--orange); font-weight: 600; }
-  [data-ui=daylight] .switch { font: 600 19px/1.2 var(--body); letter-spacing: -.01em; text-transform: lowercase; color: var(--ink); }
-  [data-ui=daylight] .switch input { width: 58px; height: 34px; border-radius: 999px; background: var(--slot); transition: background .15s ease-out; }
-  [data-ui=daylight] .switch input::before { content: ""; position: absolute; top: 4px; left: 4px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s ease-out; }
-  [data-ui=daylight] .switch input:checked { background: var(--orange); }
-  [data-ui=daylight] .switch input:checked::before { transform: translateX(24px); }
-  [data-ui=daylight] input[type=number], [data-ui=daylight] input[type=time] { background: #fff; color: var(--ink); border: 2px solid var(--ink); border-radius: 10px; font: 600 17px/1 var(--body); }
-  [data-ui=daylight] .inline { color: var(--muted); font-size: 16px; }
-  [data-ui=daylight] .toast { background: var(--orange); color: #fff; border-radius: 999px; font: 600 16px/1 var(--body); letter-spacing: 0; text-transform: lowercase; }
-  [data-ui=daylight] .toast.err { background: var(--ink); }
-
-  /* ================================================================
      SILVER (concept): a 1970s receiver. Brushed aluminium, engraved
      black legends, amber-lit meter windows, black knobs.
      ================================================================ */
@@ -534,6 +466,13 @@
         {% endfor %}
       </div>
 
+      <h3 id="lanes-l">Dance arrows</h3>
+      <div class="seg" style="--n:2" role="radiogroup" aria-labelledby="lanes-l">
+        <label><input type="radio" name="dance_lanes" value="4" {{ 'checked' if s.dance_lanes != 8 }}><span>4 arrows</span></label>
+        <label><input type="radio" name="dance_lanes" value="8" {{ 'checked' if s.dance_lanes == 8 }}><span>8 with diagonals</span></label>
+      </div>
+      <p class="hint">For the Dance style. Eight need a panel at least 64 LEDs wide.</p>
+
       <h3 id="sens-l">Sensitivity</h3>
       <div class="slider">
         <input type="range" name="sensitivity" min="1" max="100" value="{{ s.sensitivity }}" aria-labelledby="sens-l">
@@ -584,6 +523,16 @@
     <p class="hint">On your iPhone, open the AirPlay picker (Control Centre, or the speaker
       icon in Spotify) and tick <b>your Sonos</b> and <b>Equalize</b>. The Pi makes no sound;
       it only watches. <b>Demo</b> plays a built-in pattern for testing the panel.</p>
+  </div>
+</section>
+
+<section class="unit" aria-labelledby="spk-h" id="spotify-unit" hidden>
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Spotify</span><span class="screw"></span></div>
+  <div class="face">
+    <h2 id="spk-h">Spotify speakers</h2>
+    <form method="post" action="/spotify/speakers" data-autosave id="speakers"></form>
+    <p class="hint">In the Spotify app, choose <b>Equalize</b> as the device. The music plays on the
+      speakers ticked here, and the panel draws it in step. AirPlay still works as before.</p>
   </div>
 </section>
 
@@ -689,6 +638,28 @@ document.querySelectorAll("form[data-autosave]").forEach(form => {
     });
   });
 });
+// Spotify speakers: listed from OwnTone when the Spotify Connect route is installed
+async function loadSpeakers() {
+  try {
+    const d = await (await fetch("/spotify/speakers", { cache: "no-store" })).json();
+    if (!d.ok) return;
+    const form = $("speakers");
+    form.innerHTML = d.speakers.length ? "" : '<p class="hint">No AirPlay speakers found on the network yet.</p>';
+    d.speakers.forEach(s => {
+      const label = document.createElement("label");
+      label.className = "switch";
+      const name = document.createElement("span");
+      name.textContent = s.name;
+      const box = document.createElement("input");
+      box.type = "checkbox"; box.setAttribute("role", "switch"); box.name = "speaker"; box.value = s.id; box.checked = s.selected;
+      label.append(name, box);
+      form.append(label);
+    });
+    $("spotify-unit").hidden = false;
+  } catch (e) { /* not installed: the section stays hidden */ }
+}
+loadSpeakers();
+
 // a new logo shows at once in the header and the browser tab
 document.querySelectorAll("input[name=logo]").forEach(i => i.addEventListener("change", () => {
   const v = "?v=" + i.value + Date.now();
@@ -699,7 +670,7 @@ document.querySelectorAll("input[name=logo]").forEach(i => i.addEventListener("c
 document.querySelectorAll("input[name=ui]").forEach(i => i.addEventListener("change", () => {
   document.documentElement.dataset.ui = i.value;
   document.querySelector("meta[name=theme-color]").content =
-    ({ player: "#1b1e22", daylight: "#e9e6df", silver: "#2a2c2f" })[i.value] || "#0f1012";
+    ({ player: "#1b1e22", silver: "#2a2c2f" })[i.value] || "#0f1012";
 }));
 function showModeHint() {
   const m = document.querySelector("input[name=mode]:checked");
@@ -725,7 +696,8 @@ async function refresh() {
       : st.effective === "bars" ? "Playing" : "Waiting for music";
     $("song").innerHTML = st.song
       ? `<b>${esc(st.song)}</b> · ${esc(st.artist || "")}` : "";
-    $("st-sound").textContent = st.source === "demo" ? "demo" : st.has_sound ? "arriving" : "silent";
+    $("st-sound").textContent = st.source === "demo" ? "demo"
+      : st.has_sound ? (st.via === "spotify" ? "Spotify" : st.via === "airplay" ? "AirPlay" : "arriving") : "silent";
     $("st-panel").textContent = st.panel ? `${st.panel} · ${st.bars || "–"} bars` : "–";
     $("st-fps").textContent = st.effective === "bars" && st.fps ? st.fps : "–";
     $("st-bright").textContent = st.brightness ?? "–";

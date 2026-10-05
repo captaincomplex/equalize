@@ -2,8 +2,9 @@
 
 Recorded from the built page (python/client/templates/index.html), 4 Oct 2026.
 Skins share one structure; `ui` in state.json picks one, switched from the
-header: "rack" (the default, chosen by the owner), "player", and two
-concepts under consideration, "daylight" and "silver". The LED panel itself
+header: "rack" (the default, chosen by the owner), "player", and the concept
+"silver". (A fourth, "daylight", was tried on 5 Oct 2026 and dropped; it is
+in git history.) The LED panel itself
 is unaffected.
 
 ## Structure (both skins)
@@ -34,14 +35,6 @@ is unaffected.
   Share Tech Mono in the LCD.
 - Buttons are raised bevels that sink and turn to LCD when chosen; ticks are
   drawn boxes; the acknowledgement is a status bar along the bottom.
-
-## Daylight (concept): pale 1960s German hi-fi, at full strength
-- Ground #f3f0e9, ink #161615, secondary #5a5750, slots #e2ddd2.
-- Barlow, lower case, set big: a 46px name, 34px section titles, 24-30px
-  numbers. Heavy black rules (6px under the header, 3px between sections)
-  instead of cards.
-- One orange #e8590c that fills whatever is chosen: pill buttons, slider
-  knobs, switches, tile outlines, the acknowledgement.
 
 ## Silver (concept): a 1970s receiver
 - Brushed aluminium faces (#d9dbdd to #b9bcc0) on #2a2c2f; engraved black

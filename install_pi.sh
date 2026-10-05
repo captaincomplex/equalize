@@ -205,6 +205,17 @@ elif [ -n "${SPOTIFY_USERNAME}" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+say "Spotify Connect (optional)"
+note "Spotify's iPhone app can only AirPlay to one speaker, so it can't play to"
+note "your speakers and Equalize at once. With this, the Pi appears in Spotify's"
+note "device list as \"Equalize\": pick it, and the Pi plays the music on to the"
+note "speakers you choose (over AirPlay 2) and draws it in step. AirPlay stays"
+note "as it is. Adds Raspotify and OwnTone (about 10 minutes to build OwnTone)."
+SPOTIFY_CONNECT=0
+read -rp "    Set up Spotify Connect? [y/N] " ANSWER
+case "${ANSWER}" in [yY]*) SPOTIFY_CONNECT=1 ;; esac
+
+# ---------------------------------------------------------------------------
 say "Sharing a Pi with Spotipi Photo?"
 PORT=80
 if [ -e /etc/systemd/system/spotipi.service ]; then
@@ -307,6 +318,12 @@ systemctl disable equalize >/dev/null 2>&1
 systemctl enable equalize-panel >/dev/null 2>&1
 /usr/local/bin/equalize-panel boot
 
+if [ "${SPOTIFY_CONNECT}" = "1" ]; then
+  say "Spotify Connect"
+  bash "${INSTALL_PATH}/config/install_spotify_connect.sh" "${INSTALL_PATH}" "${PYTHON}" \
+    || problem "Spotify Connect didn't finish -- see the lines above; re-run this script to try again"
+fi
+
 # ---------------------------------------------------------------------------
 HOST=$(hostname)
 echo
@@ -320,6 +337,7 @@ echo "  Display       : sudo systemctl status equalize"
 [ "$SHARED" = "1" ] && echo "  Panel sharing : equalize-panel status    (Spotipi Photo's panel: http://${HOST}.local)"
 echo "  AirPlay       : sudo systemctl status shairport-sync"
 echo
+[ "${SPOTIFY_CONNECT}" = "1" ] && echo "  Spotify       : choose \"Equalize\" in Spotify's device list; pick the speakers in the control panel"
 echo "  To use: on your iPhone, open the AirPlay picker and tick BOTH your"
 echo "  Sonos speaker AND 'Equalize'. Play something. The bars follow."
 if [ ${#PROBLEMS[@]} -gt 0 ]; then

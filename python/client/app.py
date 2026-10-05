@@ -132,7 +132,7 @@ def style_preview(name):
     theme = "rainbow" if theme == "album" else theme if theme in THEMES else "mono"
     levels, peaks = sample_levels(n)
     img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme),
-               still=True)
+               still=True, dance_lanes=int(state.get("dance_lanes", 4)))
     buf = io.BytesIO()
     img.save(buf, "PNG")
     return Response(buf.getvalue(), mimetype="image/png", headers={"Cache-Control": "no-store"})
@@ -179,12 +179,55 @@ def set_look():
     state["bars"] = bars if bars in BAR_CHOICES else 0
     state["peaks"] = request.form.get("peaks") == "on"
     state["sensitivity"] = _int("sensitivity", 50, 1, 100)
+    state["dance_lanes"] = 8 if request.form.get("dance_lanes") == "8" else 4
     write_state(state)
     return done()
 
 
 # The control panel's skins, in the order the switch shows them. Rack first: the default.
-UI_SKINS = {"rack": "Rack", "player": "Player", "daylight": "Daylight", "silver": "Silver"}
+# ------------------------------------------------- Spotify Connect speakers
+# OwnTone (the Spotify Connect route) runs on this Pi; its speaker list is
+# offered here so you choose where Spotify plays without a second app.
+OWNTONE = os.environ.get("EQUALIZE_OWNTONE", "http://127.0.0.1:3689")
+
+
+def _owntone(path, body=None, method=None):
+    import json as _json
+    import urllib.request
+    req = urllib.request.Request(OWNTONE + path, method=method,
+                                 data=None if body is None else _json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=3) as r:
+        raw = r.read()
+    return _json.loads(raw) if raw else {}
+
+
+@app.route("/spotify/speakers")
+def spotify_speakers():
+    """The speakers Spotify can play to. The panel's own copy (OwnTone's
+    pipe output) is always on, so it isn't offered."""
+    try:
+        outs = _owntone("/api/outputs").get("outputs", [])
+    except Exception:
+        return jsonify(ok=False, speakers=[])
+    return jsonify(ok=True, speakers=[{"id": o["id"], "name": o["name"], "selected": bool(o.get("selected"))}
+                                      for o in outs if o.get("type") != "fifo"])
+
+
+@app.route("/spotify/speakers", methods=["POST"])
+def set_spotify_speakers():
+    try:
+        outs = _owntone("/api/outputs").get("outputs", [])
+        known = {o["id"] for o in outs}
+        chosen = [i for i in request.form.getlist("speaker") if i in known]
+        panel = [o["id"] for o in outs if o.get("type") == "fifo"]
+        _owntone("/api/outputs/set", {"outputs": chosen + panel}, "PUT")
+    except Exception:
+        return Response("OwnTone isn't answering", status=502)
+    return done()
+
+
+UI_SKINS = {"rack": "Rack", "player": "Player", "silver": "Silver"}
 
 # The logos, made by image/build_logos.py. First = default.
 LOGOS = {"ledring": "LED ring", "ring": "Ring", "led": "LED grid"}
