@@ -268,6 +268,8 @@ def set_look():
     state["dance_lanes"] = 8 if request.form.get("dance_lanes") == "8" else 4
     song = request.form.get("song_text", "off")
     state["song_text"] = song if song in ("off", "change", "always") else "off"
+    size = request.form.get("song_size", "medium")
+    state["song_size"] = size if size in ("small", "medium", "large") else "medium"
     write_state(state)
     return done()
 
