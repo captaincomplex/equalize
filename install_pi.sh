@@ -173,10 +173,26 @@ fi
 # ---------------------------------------------------------------------------
 say "Spotify (optional)"
 note "Adds the 'Spotify only' mode, the song name, and album-cover colours."
-note "Leave blank and press Enter to skip. You can re-run this script later."
 SP_ARGS=""
-read -rp "    Spotify username (blank to skip): " SPOTIFY_USERNAME
-if [ -n "${SPOTIFY_USERNAME}" ]; then
+KEEP_SPOTIFY=0
+SERVICE_DIR="${SERVICE_DIR:-/etc/systemd/system}"
+OLD_ARGS=$(sed -n 's|^ExecStart=.*equalize\.py *||p' "${SERVICE_DIR}/equalize.service" 2>/dev/null | head -1)
+OLD_CONF="${SERVICE_DIR}/equalize.service.d/spotify.conf"
+if [ -n "${OLD_ARGS}" ] && [ -f "${OLD_CONF}" ]; then
+  note "Spotify is already set up for '${OLD_ARGS%% *}'. Press Enter to keep it,"
+  note "or type a username to set it up again."
+  PROMPT="    Spotify username (blank to keep): "
+else
+  note "Leave blank and press Enter to skip. You can re-run this script later."
+  PROMPT="    Spotify username (blank to skip): "
+fi
+read -rp "${PROMPT}" SPOTIFY_USERNAME
+if [ -z "${SPOTIFY_USERNAME}" ] && [ -n "${OLD_ARGS}" ] && [ -f "${OLD_CONF}" ]; then
+  SP_ARGS="${OLD_ARGS}"
+  KEEP_SPOTIFY=1
+  KEPT_CONF=$(cat "${OLD_CONF}")
+  note "Keeping the Spotify login."
+elif [ -n "${SPOTIFY_USERNAME}" ]; then
   read -rp "    Full path to the token (.cache-...) file: " TOKEN_PATH
   read -rp "    Spotify Client ID: " SPOTIFY_CLIENT_ID
   read -rp "    Spotify Client Secret: " SPOTIFY_CLIENT_SECRET
@@ -223,7 +239,11 @@ rm -rf /etc/systemd/system/equalize.service.d
 cp "${INSTALL_PATH}/config/equalize.service" /etc/systemd/system/
 sed -i "/\[Service\]/a WorkingDirectory=${INSTALL_PATH}/python" /etc/systemd/system/equalize.service
 sed -i "/\[Service\]/a ExecStart=${PYTHON} ${INSTALL_PATH}/python/equalize.py ${SP_ARGS}" /etc/systemd/system/equalize.service
-if [ -n "${SP_ARGS}" ]; then
+if [ "${KEEP_SPOTIFY}" = "1" ]; then
+  mkdir -p /etc/systemd/system/equalize.service.d
+  printf '%s\n' "${KEPT_CONF}" > /etc/systemd/system/equalize.service.d/spotify.conf
+  chmod 600 /etc/systemd/system/equalize.service.d/spotify.conf
+elif [ -n "${SP_ARGS}" ]; then
   mkdir -p /etc/systemd/system/equalize.service.d
   cat > /etc/systemd/system/equalize.service.d/spotify.conf <<EOF
 [Service]
