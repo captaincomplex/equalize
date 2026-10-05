@@ -2,9 +2,9 @@
 
 # Equalize
 
-| LED ring (default) | Ring | LED grid |
-|:-:|:-:|:-:|
-| ![LED ring](docs/style-ledring.gif) | ![Ring](docs/style-ring.gif) | ![LED grid](docs/style-dots.gif) |
+| LED ring (default) | Ring | LED grid | Dance |
+|:-:|:-:|:-:|:-:|
+| ![LED ring](docs/style-ledring.gif) | ![Ring](docs/style-ring.gif) | ![LED grid](docs/style-dots.gif) | ![Dance](docs/style-dance.gif) |
 
 | Sunset | Disc | Meter | Equals |
 |:-:|:-:|:-:|:-:|
@@ -82,12 +82,16 @@ Spotify app --("Equalize")--> librespot (Raspotify) --pipe--> OwnTone
 ```
 
 ### Styles
-Fifteen ways to draw the music, plus plain bars. The first three match the
+Sixteen ways to draw the music, plus plain bars. The first three match the
 logos (you choose the logo at the bottom of the control panel):
 - **LED ring** (default): rings of LED dots round the middle, the inner ring
   always faintly lit, each spoke lighting outward further where it's louder.
 - **Ring**: rays round an empty circle, longer where it's louder.
 - **LED grid**: big round "LEDs" in columns, the unlit ones faintly showing.
+
+- **Dance** (best in Rainbow): Dance Dance Revolution. Four lanes, ← bass,
+  ↓ low-mid, ↑ high-mid, → treble; each time a lane's part of the music hits,
+  an arrow scrolls up to its target, which flashes as it arrives.
 
 The next four come from the first logo designs, and the last four from the
 music players of the early 2000s:

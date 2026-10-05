@@ -201,3 +201,18 @@ def test_this_pis_own_settings_win(tmp_path):
         "[DEFAULT]\nhardware_mapping = adafruit-hat-pwm\ngpio_slowdown = 4\n")
     d = read_panel_config(panel_config_paths(str(tmp_path)))
     assert (d["hardware_mapping"], d["gpio_slowdown"], d["rows"]) == ("adafruit-hat-pwm", "4", "64")
+
+
+def test_dance_sends_arrows_up_on_a_beat_without_overlaps():
+    from styles import _dance, draw_dance
+    _dance.clear()
+    n = auto_bars(64)
+    f = colour_field("rainbow", n, 64)
+    quiet, bass = np.zeros(n), np.r_[np.full(n // 4, 0.9), np.zeros(n - n // 4)]
+    for k in range(60):                                       # a kick every 5 frames
+        draw_dance(bass if k % 5 == 0 else quiet, quiet, 64, 64, f, None)
+    st = next(iter(_dance.values()))
+    left = sorted(y for lane, y in st.arrows if lane == 0)
+    assert left, "the bass lane sent arrows"
+    assert all(b - a >= 12 for a, b in zip(left, left[1:]))   # spaced at least an arrow apart
+    assert not [1 for lane, _ in st.arrows if lane == 3]      # no treble, no right arrows

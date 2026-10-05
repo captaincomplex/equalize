@@ -26,6 +26,8 @@ styles.py -- the four ways Equalize can draw the music, one per logo.
     ring    rays around an empty circle, longer where louder (the Ring logo)
     dots    big round "LEDs" in columns, the unlit ones faintly showing (the
             LED grid logo)
+    dance   Dance Dance Revolution: four lanes (bass, low-mid, high-mid,
+            treble) send arrows scrolling up to a row of targets on each beat
     bars    the plain equaliser from render.py
 
 Every style takes the same inputs -- a level and a peak (0..1) per bar and a
@@ -43,8 +45,8 @@ from PIL import Image, ImageDraw
 from render import IDLE_FLOOR, bar_layout, render
 
 STYLES = ["ledring", "ring", "dots", "sunset", "disc", "meter", "equals", "mirror", "wave",
-          "waterfall", "vu", "analyser", "scope", "trails", "plasma", "bars"]
-STYLE_LABELS = {"ledring": "LED ring", "ring": "Ring", "dots": "LED grid", "sunset": "Sunset", "disc": "Disc", "meter": "Meter",
+          "waterfall", "vu", "analyser", "scope", "trails", "plasma", "dance", "bars"]
+STYLE_LABELS = {"dance": "Dance", "ledring": "LED ring", "ring": "Ring", "dots": "LED grid", "sunset": "Sunset", "disc": "Disc", "meter": "Meter",
                 "equals": "Equals", "mirror": "Mirror", "wave": "Wave",
                 "waterfall": "Waterfall", "vu": "Needle", "analyser": "Analyser",
                 "scope": "Scope", "trails": "Trails", "plasma": "Plasma",
@@ -731,6 +733,116 @@ def draw_dots(levels, peaks, width, height, field, peak_colour, show_peaks=True)
             img[y0:y0 + dot, x0:x0 + dot] = np.asarray(fill).astype(np.uint8)
     return Image.fromarray(img, "RGB")
 
+# ---------------------------------------------------------------- dance
+# Dance Dance Revolution: four lanes, left/down/up/right, for the bass, low
+# mid, high mid and treble. Each time a lane's part of the music hits, an
+# arrow appears at the bottom and scrolls up to that lane's target at the
+# top, which flashes as it arrives. Like the waterfall, it keeps a little
+# state per panel size: the arrows on screen and each lane's recent level.
+DANCE_LANES = ("left", "down", "up", "right")
+_dance = {}
+
+
+@lru_cache(maxsize=16)
+def _arrow(size, direction):
+    """An arrow sprite: (fill, outline) masks, size x size, pointing the way."""
+    n = size
+    y, x = np.mgrid[0:n, 0:n].astype(float)
+    c = (n - 1) / 2
+    head_h = n * 0.55                                        # the triangle's height
+    # pointing up: a triangle on top, a stem below
+    tri = (y <= head_h) & (np.abs(x - c) <= (y + 0.5) * (c + 0.5) / max(head_h, 1))
+    stem_w = max(1.0, n * 0.18)
+    stem = (y > head_h - 0.5) & (np.abs(x - c) <= stem_w)
+    fill = tri | stem
+    # outline: the fill's edge
+    pad = np.pad(fill, 1)
+    inner = pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:]
+    edge = fill & ~inner
+    turns = {"up": 0, "left": 1, "down": 2, "right": 3}[direction]
+    return np.rot90(fill, turns).copy(), np.rot90(edge, turns).copy()
+
+
+class _Dance:
+    def __init__(self):
+        self.arrows = []                                     # [lane, y (float, from the top)]
+        self.avg = np.zeros(4)
+        self.cool = np.zeros(4)                              # frames until a lane may fire again
+        self.flash = np.zeros(4)
+
+
+def _lane_levels(levels):
+    lv = np.asarray(levels, dtype=float)
+    return np.array([g.max() if len(g) else 0.0 for g in np.array_split(lv, 4)])
+
+
+def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False):
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+    lane_w = width / 4
+    size = int(max(5, min(lane_w - 2, height / 4)))
+    size -= (size % 2 == 0)                                  # odd, so the arrow has a middle
+    top = 1
+    speed = max(1.0, height / 40)                            # rows per frame: about a second to cross
+    n = field.shape[1]
+    rows = len(field) - 1
+    lanes = _lane_levels(levels)
+    if still:
+        st = _Dance()
+        rng = np.random.default_rng(4)
+        for lane in range(4):                                # a made-up few beats for the still
+            for k in range(3):
+                if rng.random() < 0.55 + 0.4 * lanes[lane]:
+                    st.arrows.append([lane, top + size + 4 + k * (height - size) / 3 + lane * 3])
+        st.flash[:] = (lanes > 0.5) * 6
+    else:
+        key = (width, height)
+        st = _dance.get(key)
+        if st is None:
+            _dance.clear()
+            st = _dance[key] = _Dance()
+        # a lane "hits" when it jumps well above its own recent level
+        for lane in range(4):
+            v = lanes[lane]
+            if st.cool[lane] <= 0 and v > 0.25 and v > st.avg[lane] * 1.35 + 0.06:
+                st.arrows.append([lane, float(height)])
+                st.cool[lane] = math.ceil((size + 2) / speed)    # the last arrow clears first: no overlaps
+            st.avg[lane] = 0.9 * st.avg[lane] + 0.1 * v
+        st.cool -= 1
+        for a in st.arrows:
+            a[1] -= speed
+        for a in st.arrows:
+            if a[1] <= top:
+                st.flash[a[0]] = 6
+        st.arrows = [a for a in st.arrows if a[1] > top]
+        st.flash = np.maximum(st.flash - 1, 0)
+
+    def colour(lane, bright):
+        i = min(n - 1, int((lane + 0.5) / 4 * n))
+        return field[int(bright * rows), i]
+
+    def stamp(mask, x0, y0, col):
+        h, w = mask.shape
+        ys, xs = np.nonzero(mask)
+        ys, xs = ys + y0, xs + x0
+        ok = (ys >= 0) & (ys < height) & (xs >= 0) & (xs < width)
+        img[ys[ok], xs[ok]] = np.asarray(col).astype(np.uint8)
+
+    for lane, direction in enumerate(DANCE_LANES):
+        x0 = int(round(lane * lane_w + (lane_w - size) / 2))
+        fill, edge = _arrow(size, direction)
+        # the target: an outline, lit up while an arrow arrives
+        f = st.flash[lane] / 6
+        if f > 0:
+            stamp(fill, x0, top, colour(lane, 1.0) * (0.35 + 0.65 * f))
+        stamp(edge, x0, top, np.maximum(colour(lane, 0.6) * 0.5, 40) if f == 0 else colour(lane, 1.0))
+    for lane, y in st.arrows:
+        x0 = int(round(lane * lane_w + (lane_w - size) / 2))
+        fill, edge = _arrow(size, DANCE_LANES[lane])
+        stamp(fill, x0, int(round(y)), colour(lane, 0.75))
+        stamp(edge, x0, int(round(y)), np.minimum(255, colour(lane, 1.0) * 1.1 + 25))
+    return Image.fromarray(img, "RGB")
+
+
 def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peaks=True, still=False,
          wave=None):
     """Draw one frame in the named style. Unknown names fall back to sunset.
@@ -742,6 +854,8 @@ def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peak
                       field=field, peak_colour=peak_colour)
     if style == "waterfall":
         return draw_waterfall(levels, peaks, width, height, field, peak_colour, show_peaks, still)
+    if style == "dance":
+        return draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks, still)
     if style == "trails":
         return draw_trails(levels, peaks, width, height, field, peak_colour, show_peaks, still)
     if style == "scope":
