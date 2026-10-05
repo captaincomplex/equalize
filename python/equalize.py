@@ -38,7 +38,7 @@ from PIL import Image
 
 from audio_source import DemoSource, MusicSource, SoundDetector
 from display_logic import (compute_effective, effective_brightness, panel_config_paths,
-                           panel_geometry, read_panel_config)
+                           panel_geometry, read_panel_config, spotipi_root)
 from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for
 from styles import STYLES, draw as draw_style
 from spectrum import Analyzer, BarSmoother
@@ -63,7 +63,7 @@ log = logging.getLogger("equalize")
 def load_matrix():
     from rgbmatrix import RGBMatrix, RGBMatrixOptions   # only exists on the Pi
 
-    d = read_panel_config(panel_config_paths(os.path.dirname(CONFIG_PATH)))
+    d = read_panel_config(panel_config_paths(os.path.dirname(CONFIG_PATH), spotipi_root()))
     options = RGBMatrixOptions()
     options.rows = int(d["rows"])
     options.cols = int(d["columns"])

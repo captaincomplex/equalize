@@ -211,6 +211,20 @@ Photo** switch:
   the Sonos alone for album covers.
 - **Equalize** or **Spotipi Photo**: always that one.
 
+Where the two can get in each other's way, and what Equalize does about it:
+
+- **Panel settings** (size, `gpio_slowdown`, wiring): one panel, so one set.
+  Equalize uses Spotipi Photo's (set with its `tools/panel_setting.py`);
+  anything in Equalize's own `config/rgb_options.local.ini` still wins, and the
+  control panel lists it if it differs.
+- **Display Off**: with Equalize set to Off, it leaves the panel to Spotipi
+  Photo instead of taking it to show nothing.
+- **Brightness, night dimming, quiet hours, screen timer**: each program has
+  its own. If they differ the panel changes when it's handed over (brighter,
+  or lit in the other's quiet hours). The Sharing section lists any that
+  differ, with a button that copies Spotipi Photo's values to Equalize.
+- **The two control panels** link to each other.
+
 How it works: when AirPlay music starts, shairport-sync runs
 `/usr/local/bin/equalize-panel airplay-start`, which stops Spotipi Photo's
 display and starts Equalize's. Ten seconds after the music stops it runs

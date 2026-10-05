@@ -85,6 +85,11 @@
   .unit:has(details:not([open])) .ear-label, .unit:has(details:not([open])) .screw + .ear-label + .screw { display: none; }
   .unit:has(details:not([open])) .ear { justify-content: center; }
   h3.first { margin-top: 0; }
+  .other-panel { font: 600 13px/1 var(--label); letter-spacing: .1em; text-transform: uppercase; color: inherit; text-underline-offset: 3px; }
+  .brand .other-panel { margin-left: auto; padding: 8px 0; }
+  .diffs { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; }
+  .link-button { margin-top: 10px; padding: 10px 12px; min-height: 44px; border: 1px solid currentColor; border-radius: 3px;
+                 background: transparent; cursor: pointer; font: 600 13px/1.2 var(--label); letter-spacing: .08em; text-transform: uppercase; text-align: left; }
 
   /* the live picture of the panel */
   .panel { position: relative; margin: 0 auto; max-width: min(100%, calc(320px * var(--panel-w, 1) / var(--panel-h, 1))); aspect-ratio: var(--panel-aspect, 1 / 1); }
@@ -391,6 +396,7 @@
 
 <header class="brand">
   <h1><img id="brand-icon" src="/icon-64.png?v={{ s.logo }}" alt="">Equalize</h1>
+  {% if dash.share.installed %}<a class="other-panel" href="{{ dash.share.url }}">Spotipi Photo →</a>{% endif %}
   <form method="post" action="/ui" data-autosave class="skin-switch" role="radiogroup" aria-label="Control panel look">
     {% for value, label in ui_skins.items() %}
     <label><input type="radio" name="ui" value="{{ value }}" {{ 'checked' if (s.ui if s.ui in ui_skins else 'rack') == value }}><span>{{ label }}</span></label>
@@ -539,7 +545,24 @@
     <p class="hint">Only one of the two can light the panel at a time. <b>Auto</b> shows the
       equaliser while music is arriving over AirPlay, and hands back to Spotipi Photo's album
       covers and photos about 10 seconds after it stops. Play to your Sonos without ticking
-      Equalize and you get album covers instead.</p>
+      Equalize and you get album covers instead. With the display set to <b>Off</b> above,
+      Equalize leaves the panel to Spotipi Photo.</p>
+    {% if diffs %}
+    <h3>Set differently in the two</h3>
+    <ul class="diffs">
+      {% for what, here, there in diffs %}
+      <li><b>{{ what }}</b>: {{ here }} here, {{ there }} in Spotipi Photo</li>
+      {% endfor %}
+    </ul>
+    <p class="hint">The panel changes when it's handed over: brighter, or lit during the other's
+      quiet hours.{% set ns = namespace(panel=false) %}{% for d in diffs %}{% if d[0].startswith("Panel setting") %}{% set ns.panel = true %}{% endif %}{% endfor %}{% if ns.panel %} Panel settings are set
+      once, in Spotipi Photo; one listed here comes from Equalize's own
+      <b>config/rgb_options.local.ini</b>: take it out there, unless this panel really needs it.{% endif %}</p>
+    <form method="post" action="/share/match" data-autosave>
+      <button class="link-button" type="submit">Copy Spotipi Photo's brightness, dimming, quiet hours and timer here</button>
+    </form>
+    {% endif %}
+    <p class="hint"><a class="other-panel" href="{{ dash.share.url }}">Open Spotipi Photo's control panel →</a></p>
   </details>
 </section>
 {% endif %}
@@ -653,6 +676,7 @@ async function save(form) {
       headers: { "X-Requested-With": "XMLHttpRequest" } });
     if (!r.ok) throw 0;
     toast("Saved");
+    if (form.action.endsWith("/share/match")) { location.reload(); return; }   // every copied value on show
     if (form.action.endsWith("/look"))
       document.querySelectorAll("[data-style-preview]").forEach(i => i.src = i.src.split("?")[0] + "?" + Date.now());
     refresh();
