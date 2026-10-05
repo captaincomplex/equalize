@@ -41,3 +41,18 @@ def test_every_setting_is_still_on_the_page(monkeypatch, tmp_path):
                   "latitude", "longitude"):
         assert 'name="%s"' % field in page, field
     assert "fonts/barlow-400.woff2" in page             # served by the Pi, no internet needed
+
+
+def test_logo_choice_changes_the_icons(monkeypatch, tmp_path):
+    c = client(monkeypatch, tmp_path)
+    assert state.read_state()["logo"] == "ledring"                    # the default
+    ledring = c.get("/icon-192.png").data
+    assert c.post("/logo", data={"logo": "ring"}).status_code == 302
+    assert state.read_state()["logo"] == "ring"
+    assert c.get("/icon-192.png").data != ledring                     # the icon really changed
+    for url in ("/favicon.ico", "/icon.svg", "/apple-touch-icon.png", "/manifest.webmanifest",
+                "/logo/led.png"):
+        assert c.get(url).status_code == 200, url
+    assert c.get("/logo/../../etc.png").status_code == 404
+    c.post("/logo", data={"logo": "nonsense"})
+    assert state.read_state()["logo"] == "ledring"

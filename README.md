@@ -2,7 +2,11 @@
 
 # Equalize
 
-| Sunset (default) | Disc | Meter | Equals |
+| LED ring (default) | Ring | LED grid |
+|:-:|:-:|:-:|
+| ![LED ring](docs/style-ledring.gif) | ![Ring](docs/style-ring.gif) | ![LED grid](docs/style-dots.gif) |
+
+| Sunset | Disc | Meter | Equals |
 |:-:|:-:|:-:|:-:|
 | ![Sunset](docs/style-sunset.gif) | ![Disc](docs/style-disc.gif) | ![Meter](docs/style-meter.gif) | ![Equals](docs/style-equals.gif) |
 | **Mirror** (Ocean) | **Wave** (Aurora) | **Waterfall** (Thermal) | **Needle** (Amber) |
@@ -63,10 +67,16 @@ the music tile, or the speaker icon in Spotify) and tick **your Sonos** *and*
 Works from an iPhone, iPad, Mac or Apple TV, with any app. The Pi makes no sound.
 
 ### Styles
-Twelve ways to draw the music, plus plain bars. The first four come from the
-first logo designs, and the last four from the music players of the early
-2000s:
-- **Sunset** (default): bars standing on a horizon, the sun's stripes cut through
+Fifteen ways to draw the music, plus plain bars. The first three match the
+logos (you choose the logo at the bottom of the control panel):
+- **LED ring** (default): rings of LED dots round the middle, the inner ring
+  always faintly lit, each spoke lighting outward further where it's louder.
+- **Ring**: rays round an empty circle, longer where it's louder.
+- **LED grid**: big round "LEDs" in columns, the unlit ones faintly showing.
+
+The next four come from the first logo designs, and the last four from the
+music players of the early 2000s:
+- **Sunset**: bars standing on a horizon, the sun's stripes cut through
   them, a neon grid floor below.
 - **Disc**: the spectrum as a ring of rays around a small striped sun.
 - **Meter**: a hi-fi LED meter, stacked segments with the unlit ones faintly
@@ -99,9 +109,9 @@ the web panel, which shows a live preview of each.
 - **Always on**: bars even in silence (a faint floor row).
 - **Off**.
 
-Plus: live **brightness**, **colours** (*vapor*, the logo's sunset with cyan
-peak caps and the default; classic, rainbow, ice, sunset, fire, ocean, forest,
-aurora, amber, warm white, pastel and thermal; and *album*, which takes the bar
+Plus: live **brightness**, **colours** (*warm white*, the default; vapor,
+classic, rainbow, ice, sunset, fire, ocean, forest, aurora, amber, pastel,
+thermal and teal; and *album*, which takes the bar
 colours from the cover of the song playing, and needs the Spotify login),
 **number of bars**, **sensitivity**, **peak caps**, a **screen timer**, **quiet
 hours** and a **sunrise/sunset dimmer**, all as in Spotipi Photo. A live

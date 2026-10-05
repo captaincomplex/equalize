@@ -21,6 +21,11 @@ styles.py -- the four ways Equalize can draw the music, one per logo.
             MilkDrop or Windows Media Player
     plasma  flowing colour pushed around by the bass, like Media Player's
             "Ambience"
+    ledring rings of LED dots around the middle, lit outward further where
+            the music is louder (the LED ring logo; the default)
+    ring    rays around an empty circle, longer where louder (the Ring logo)
+    dots    big round "LEDs" in columns, the unlit ones faintly showing (the
+            LED grid logo)
     bars    the plain equaliser from render.py
 
 Every style takes the same inputs -- a level and a peak (0..1) per bar and a
@@ -37,9 +42,9 @@ from PIL import Image, ImageDraw
 
 from render import IDLE_FLOOR, bar_layout, render
 
-STYLES = ["sunset", "disc", "meter", "equals", "mirror", "wave", "waterfall", "vu",
-          "analyser", "scope", "trails", "plasma", "bars"]
-STYLE_LABELS = {"sunset": "Sunset", "disc": "Disc", "meter": "Meter",
+STYLES = ["ledring", "ring", "dots", "sunset", "disc", "meter", "equals", "mirror", "wave",
+          "waterfall", "vu", "analyser", "scope", "trails", "plasma", "bars"]
+STYLE_LABELS = {"ledring": "LED ring", "ring": "Ring", "dots": "LED grid", "sunset": "Sunset", "disc": "Disc", "meter": "Meter",
                 "equals": "Equals", "mirror": "Mirror", "wave": "Wave",
                 "waterfall": "Waterfall", "vu": "Needle", "analyser": "Analyser",
                 "scope": "Scope", "trails": "Trails", "plasma": "Plasma",
@@ -598,6 +603,119 @@ def draw_plasma(levels, peaks, width, height, field, peak_colour, show_peaks=Tru
     return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGB")
 
 
+# ---------------------------------------------------------------- logo styles
+def _around(levels, peaks, n):
+    """Bars shared out round a circle: n spokes, bass at the bottom, treble at
+    the top, mirrored left and right (as Disc does), loudest of each group."""
+    lv, pk = np.asarray(levels, dtype=float), np.asarray(peaks, dtype=float)
+    half = max(1, min(n // 2, len(lv)))                           # never more spokes than bars
+    groups = np.array_split(np.arange(len(lv)), half)
+    l = np.array([lv[g].max() for g in groups])
+    p = np.array([pk[g].max() for g in groups])
+    idx = [g[len(g) // 2] for g in groups]
+    spokes = []
+    for side in (1, -1):
+        for i in range(half):
+            a = math.pi / 2 - side * math.pi * (i + 0.5) / half       # screen angle, y down
+            spokes.append((a, l[i], p[i], idx[i]))
+    return spokes
+
+
+def _led(img, x, y, size, colour):
+    """One "LED": a size x size block (2x2 on a big panel). On a real panel
+    the gap round it makes it read as a round dot."""
+    x0, y0 = int(round(x - (size - 1) / 2)), int(round(y - (size - 1) / 2))
+    h, w = img.shape[:2]
+    if 0 <= x0 and x0 + size <= w and 0 <= y0 and y0 + size <= h:
+        img[y0:y0 + size, x0:x0 + size] = colour
+
+
+def draw_ledring(levels, peaks, width, height, field, peak_colour, show_peaks=True):
+    """Rings of LED dots round the middle. The inner ring is always faintly
+    lit; each spoke lights outward, further where the music is louder, like
+    the LED ring logo. Unlit dots glow very faintly."""
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+    cx, cy = (width - 1) / 2, (height - 1) / 2
+    size = min(width, height)
+    dot = 2 if size >= 48 else 1
+    rings = max(3, min(6, int(size * 0.32 / (dot + 2))))
+    r_in = size * 0.18
+    step = (size / 2 - dot - r_in) / max(1, rings - 1)
+    n = max(10, min(36, int(2 * math.pi * r_in / (dot + 1.2))))
+    rows = len(field) - 1
+    for a, lv, pk, i in _around(levels, peaks, n):
+        lit = int(round(lv * rings))
+        top = int(round(pk * rings)) - 1
+        for j in range(rings):
+            col = field[int((0.45 + 0.55 * j / max(1, rings - 1)) * rows), i]   # the bright part of the colours
+            if j < lit:
+                c = col
+            elif show_peaks and j == top and j > 0:
+                c = _peak_rgb(field, i, peak_colour)
+            elif j == 0:
+                c = col * 0.45                                   # the ring itself, always there
+            else:
+                c = col * 0.07
+            r = r_in + j * step
+            _led(img, cx + r * math.cos(a), cy + r * math.sin(a), dot, np.asarray(c).astype(np.uint8))
+    return Image.fromarray(img, "RGB")
+
+
+def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True):
+    """Rays round an empty circle, longer where the music is louder; the
+    circle itself always faintly lit (the Ring logo)."""
+    img = Image.new("RGB", (width, height))
+    d = ImageDraw.Draw(img)
+    cx, cy = (width - 1) / 2, (height - 1) / 2
+    size = min(width, height)
+    r0 = size * 0.2
+    reach = size / 2 - r0 - 1.5
+    rows = len(field) - 1
+    mid = field.shape[1] // 2
+    d.ellipse([cx - r0 + 2, cy - r0 + 2, cx + r0 - 2, cy + r0 - 2],
+              outline=tuple(int(v) for v in field[rows // 2, mid] * 0.7), width=1)
+    n = max(10, min(32, int(2 * math.pi * r0 / 3.2)))          # room between spokes
+    for a, lv, pk, i in _around(levels, peaks, n):
+        ca, sa = math.cos(a), math.sin(a)
+        length = lv * reach
+        c = field[int(lv * rows), i]
+        if length >= 0.5:
+            d.line([(cx + r0 * ca, cy + r0 * sa), (cx + (r0 + length) * ca, cy + (r0 + length) * sa)],
+                   fill=tuple(int(v) for v in c), width=1)
+        if show_peaks and pk * reach > length + 1.5:
+            pr = r0 + pk * reach
+            d.point((cx + pr * ca, cy + pr * sa), fill=tuple(int(v) for v in _peak_rgb(field, i, peak_colour)))
+    return img
+
+
+def draw_dots(levels, peaks, width, height, field, peak_colour, show_peaks=True):
+    """Big "LEDs" in columns (2x2 with a gap on a big panel), the unlit ones
+    faintly showing, like the LED grid logo."""
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+    n = len(levels)
+    dot = 2 if min(width, height) >= 48 else 1
+    pitch = dot + 1
+    cols, rows_n = width // pitch, height // pitch
+    left = (width - cols * pitch + 1) // 2
+    top_edge = (height - rows_n * pitch + 1) // 2
+    frows = len(field) - 1
+    for c in range(cols):
+        i = min(n - 1, c * n // cols)
+        lit = int(round(float(levels[i]) * rows_n))
+        top = int(round(float(peaks[i]) * rows_n)) - 1
+        for r in range(rows_n):                                  # r = 0 is the bottom row
+            col = field[int(r / max(1, rows_n - 1) * frows), i]
+            if r < lit:
+                fill = col
+            elif show_peaks and r == top:
+                fill = _peak_rgb(field, i, peak_colour)
+            else:
+                fill = col * 0.07
+            x0 = left + c * pitch
+            y0 = top_edge + (rows_n - 1 - r) * pitch
+            img[y0:y0 + dot, x0:x0 + dot] = np.asarray(fill).astype(np.uint8)
+    return Image.fromarray(img, "RGB")
+
 def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peaks=True, still=False,
          wave=None):
     """Draw one frame in the named style. Unknown names fall back to sunset.
@@ -618,7 +736,8 @@ def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peak
                            t=12.0 if still else None)
     fn = {"sunset": draw_sunset, "disc": draw_disc, "meter": draw_meter,
           "equals": draw_equals, "mirror": draw_mirror, "wave": draw_wave,
-          "vu": draw_vu, "analyser": draw_analyser}.get(style, draw_sunset)
+          "vu": draw_vu, "analyser": draw_analyser, "ledring": draw_ledring,
+          "ring": draw_ring, "dots": draw_dots}.get(style, draw_sunset)
     return fn(levels, peaks, width, height, field, peak_colour, show_peaks)
 
 

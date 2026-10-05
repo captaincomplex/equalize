@@ -8,10 +8,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Equalize</title>
-<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32">
-<link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+<link rel="icon" href="/favicon.ico?v={{ s.logo }}" sizes="32x32">
+<link rel="icon" href="/icon.svg?v={{ s.logo }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v={{ s.logo }}">
+<link rel="manifest" href="/manifest.webmanifest?v={{ s.logo }}">
 <style>
   /* Fonts live on the Pi (static/fonts, SIL Open Font Licence): the page
      works with no internet. */
@@ -48,7 +48,15 @@
 
   /* header: the name, and the switch between the two skins */
   .brand { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; margin: 4px 0 12px; }
-  .brand h1 { font: 700 26px/1 var(--label); letter-spacing: .14em; text-transform: uppercase; }
+  .brand h1 { display: flex; align-items: center; gap: 10px; font: 700 26px/1 var(--label); letter-spacing: .14em; text-transform: uppercase; }
+  .brand h1 img { width: 34px; height: 34px; border-radius: 8px; flex: none; }
+  .logos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .logo-pick { position: relative; cursor: pointer; text-align: center; }
+  .logo-pick input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .logo-pick img { width: 100%; max-width: 96px; margin: 0 auto; aspect-ratio: 1; border-radius: 22%; transition: box-shadow .15s ease-out; }
+  .logo-pick .name { display: block; margin-top: 6px; font-size: 13px; }
+  .logo-pick input:checked ~ img { box-shadow: 0 0 0 3px var(--focus); }
+  .logo-pick input:focus-visible ~ img { outline: 2px solid var(--focus); outline-offset: 3px; }
   .skin-switch { display: flex; }
   .skin-switch label { position: relative; cursor: pointer; }
   .skin-switch input, .seg input, .styles input, .swatch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
@@ -429,7 +437,7 @@
 <main>
 
 <header class="brand">
-  <h1>Equalize</h1>
+  <h1><img id="brand-icon" src="/icon-64.png?v={{ s.logo }}" alt="">Equalize</h1>
   <form method="post" action="/ui" data-autosave class="skin-switch" role="radiogroup" aria-label="Control panel look">
     {% for value, label in ui_skins.items() %}
     <label><input type="radio" name="ui" value="{{ value }}" {{ 'checked' if (s.ui if s.ui in ui_skins else 'rack') == value }}><span>{{ label }}</span></label>
@@ -608,6 +616,26 @@
   </div>
 </section>
 
+<section class="unit" aria-labelledby="page-h">
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Page</span><span class="screw"></span></div>
+  <div class="face">
+    <h2 id="page-h">Logo</h2>
+    <form method="post" action="/logo" data-autosave>
+      <div class="logos" role="radiogroup" aria-label="Logo">
+        {% for value, label in logos.items() %}
+        <label class="logo-pick">
+          <input type="radio" name="logo" value="{{ value }}" {{ 'checked' if (s.logo if s.logo in logos else 'ledring') == value }}>
+          <img src="/logo/{{ value }}.png" alt="">
+          <span class="name">{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <noscript><button>Save</button></noscript>
+    </form>
+    <p class="hint">The icon for this page, in the browser tab and on your phone's home screen.</p>
+  </div>
+</section>
+
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -653,6 +681,12 @@ document.querySelectorAll("form[data-autosave]").forEach(form => {
     });
   });
 });
+// a new logo shows at once in the header and the browser tab
+document.querySelectorAll("input[name=logo]").forEach(i => i.addEventListener("change", () => {
+  const v = "?v=" + i.value + Date.now();
+  $("brand-icon").src = "/icon-64.png" + v;
+  document.querySelectorAll("link[rel=icon]").forEach(l => l.href = l.href.split("?")[0] + v);
+}));
 // the control panel's own look changes at once, before the Pi has saved it
 document.querySelectorAll("input[name=ui]").forEach(i => i.addEventListener("change", () => {
   document.documentElement.dataset.ui = i.value;
