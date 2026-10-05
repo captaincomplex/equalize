@@ -47,6 +47,14 @@ def band_bins(samplerate, fft_size, n_bars, fmin=FMIN, fmax=FMAX):
     return starts, ends, centres
 
 
+def sensitivity_db(sensitivity):
+    """How many decibels below the loudest band still light a bar: 8 dB at
+    1 (only the strongest notes), about 20 dB at 50, 33 dB at 100. Until
+    5 Oct 2026 the scale was 20-70 dB, which filled the panel with most music;
+    the old setting 1 is the new 50 (see state.py)."""
+    return 8.0 + 0.25 * max(1, min(100, sensitivity))
+
+
 class Analyzer:
     """Samples in, one level per bar out (each 0.0 .. 1.0).
 
@@ -86,7 +94,7 @@ class Analyzer:
         self.ref_db = max(float(np.max(db)),
                           self.ref_db - self.ref_fall_db_per_s * dt,
                           MIN_REF_DB)
-        range_db = 20.0 + 0.5 * max(1, min(100, sensitivity))   # 20..70 dB
+        range_db = sensitivity_db(sensitivity)
         levels = (db - (self.ref_db - range_db)) / range_db
         return np.clip(levels, 0.0, 1.0)
 

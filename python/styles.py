@@ -46,12 +46,19 @@ from PIL import Image, ImageDraw
 from render import IDLE_FLOOR, bar_layout, render
 
 STYLES = ["ledring", "ring", "dots", "sunset", "disc", "meter", "equals", "mirror", "wave",
-          "waterfall", "vu", "analyser", "scope", "trails", "plasma", "dance", "bars"]
-STYLE_LABELS = {"dance": "Dance", "ledring": "LED ring", "ring": "Ring", "dots": "LED grid", "sunset": "Sunset", "disc": "Disc", "meter": "Meter",
+          "waterfall", "vu", "analyser", "scope", "trails", "plasma", "dance", "matrix", "bars"]
+STYLE_LABELS = {"dance": "Dance", "matrix": "Matrix", "ledring": "LED ring", "ring": "Ring", "dots": "LED grid", "sunset": "Sunset", "disc": "Disc", "meter": "Meter",
                 "equals": "Equals", "mirror": "Mirror", "wave": "Wave",
                 "waterfall": "Waterfall", "vu": "Needle", "analyser": "Analyser",
                 "scope": "Scope", "trails": "Trails", "plasma": "Plasma",
                 "bars": "Plain bars"}
+# How the control panel groups them, so like sits with like.
+STYLE_GROUPS = [
+    ("Rings", ["ledring", "ring", "disc"]),
+    ("Bars and meters", ["bars", "dots", "meter", "analyser", "equals", "mirror", "sunset", "vu"]),
+    ("Waves", ["wave", "scope", "trails", "waterfall"]),
+    ("Effects and games", ["plasma", "matrix", "dance"]),
+]
 CYAN = np.array([45, 226, 245], dtype=float)
 DEEP_BLUE = np.array([27, 58, 143], dtype=float)
 SUN_STOPS = [(0.0, (169, 75, 255)), (0.35, (255, 95, 200)), (0.7, (255, 157, 122)), (1.0, (255, 246, 160))]
@@ -1038,6 +1045,110 @@ def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True
         stamp(edge, x0, int(round(y)), np.minimum(255, colour(lane, shade) * 1.1 + 25))
     return Image.fromarray(img, "RGB")
 
+# ---------------------------------------------------------------- matrix
+# Digital rain, as in the film: columns of little glyphs falling, a bright
+# head and a fading tail. Each column listens to its own part of the music:
+# louder sends more streams, faster and longer. Best in Phosphor.
+MATRIX_PITCH_X = 4                                           # 3-LED glyph, 1 dark
+MATRIX_PITCH_Y = 6                                           # 5-LED glyph, 1 dark
+
+
+@lru_cache(maxsize=1)
+def _matrix_glyphs(count=48):
+    """Made-up 3x5 symbols: like the film's mirrored characters, too small
+    to be letters, never blank, never a solid block."""
+    rng = np.random.default_rng(1999)
+    out = []
+    while len(out) < count:
+        g = rng.random((5, 3)) < 0.55
+        if 5 <= g.sum() <= 12 and g.any(axis=1).sum() >= 4:
+            out.append(g)
+    return np.array(out)
+
+
+class _Rain:
+    def __init__(self, cols, rows):
+        self.rng = np.random.default_rng(23)
+        self.drops = [[] for _ in range(cols)]              # [head row (cells), speed, length]
+        self.glyph = self.rng.integers(0, len(_matrix_glyphs()), (rows, cols))
+        self.avg = np.zeros(cols)
+        self.cool = np.zeros(cols)
+
+
+_rains = {}
+
+
+def draw_matrix(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False, dt=1 / 40):
+    cols = max(1, width // MATRIX_PITCH_X)
+    rows = max(1, (height + 1) // MATRIX_PITCH_Y)
+    left = (width - (cols * MATRIX_PITCH_X - 1)) // 2
+    lv = np.asarray(levels, dtype=float)
+    # each column takes the level of the part of the music under it
+    v = lv[np.minimum(len(lv) - 1, (np.arange(cols) * len(lv)) // cols)]
+    glyphs = _matrix_glyphs()
+
+    if still:
+        st = _Rain(cols, rows)
+        for c in range(cols):
+            if v[c] > 0.25:
+                st.drops[c].append([st.rng.uniform(rows * 0.3, rows), 1.0, 3 + 9 * v[c]])
+    else:
+        key = (width, height)
+        st = _rains.get(key)
+        if st is None:
+            _rains.clear()
+            st = _rains[key] = _Rain(cols, rows)
+        for c in range(cols):
+            # a new stream when this part of the music rises, or now and then
+            hit = v[c] > 0.2 and v[c] > st.avg[c] * 1.25 + 0.04
+            if st.cool[c] <= 0 and (hit or st.rng.random() < dt * 0.3):
+                speed = 6 + 22 * v[c]                          # cells a second
+                st.drops[c].append([-1.0, speed, 3 + 10 * v[c]])
+                st.cool[c] = 0.25
+            st.avg[c] = 0.9 * st.avg[c] + 0.1 * v[c]
+            for d in st.drops[c]:
+                d[0] += d[1] * dt
+            st.drops[c] = [d for d in st.drops[c] if d[0] - d[2] < rows]
+        st.cool -= dt
+        # a few symbols change as they sit there
+        flips = st.rng.random(st.glyph.shape) < dt * 1.5
+        st.glyph[flips] = st.rng.integers(0, len(glyphs), int(flips.sum()))
+
+    # how lit each cell is: 1 at a stream's head, fading up its tail
+    light = np.zeros((rows, cols))
+    head = np.zeros((rows, cols), dtype=bool)
+    for c in range(cols):
+        for y, _, length in st.drops[c]:
+            hy = int(y)
+            for k in range(int(length) + 1):
+                r = hy - k
+                if 0 <= r < rows:
+                    light[r, c] = max(light[r, c], 1.0 - k / (length + 1))
+            if 0 <= hy < rows:
+                head[hy, c] = True
+
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+    top = len(field) - 1
+    n = field.shape[1]
+    for r in range(rows):
+        y0 = r * MATRIX_PITCH_Y
+        for c in range(cols):
+            b = light[r, c]
+            if b <= 0.02:
+                continue
+            i = min(n - 1, c * n // cols)
+            col = field[int(top * (0.35 + 0.6 * b)), i] * (0.15 + 0.85 * b ** 1.4)
+            if head[r, c]:
+                col = np.minimum(255, field[top, i] * 0.5 + 140)    # the head: nearly white
+            g = glyphs[st.glyph[r, c]]
+            x0 = left + c * MATRIX_PITCH_X
+            h = min(5, height - y0)
+            if h > 0:
+                block = img[y0:y0 + h, x0:x0 + 3]
+                block[g[:h, :block.shape[1]]] = col.astype(np.uint8)
+    return Image.fromarray(img, "RGB")
+
+
 def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peaks=True, still=False,
          wave=None, dance_lanes=4, dt=1 / 40):
     """Draw one frame in the named style. Unknown names fall back to sunset.
@@ -1049,6 +1160,8 @@ def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peak
                       field=field, peak_colour=peak_colour)
     if style == "waterfall":
         return draw_waterfall(levels, peaks, width, height, field, peak_colour, show_peaks, still)
+    if style == "matrix":
+        return draw_matrix(levels, peaks, width, height, field, peak_colour, show_peaks, still, dt=dt)
     if style == "dance":
         return draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks, still,
                           lanes_n=dance_lanes, dt=dt, wave=wave)

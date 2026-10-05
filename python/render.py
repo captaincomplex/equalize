@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image
 
 THEMES = ["vapor", "classic", "rainbow", "ice", "sunset",
-          "fire", "ocean", "forest", "aurora", "amber", "mono", "pastel", "thermal", "teal",
+          "fire", "ocean", "forest", "aurora", "amber", "mono", "pastel", "thermal", "teal", "phosphor",
           "album"]
 
 # Colour stops from the bottom of the panel (0.0) to the top (1.0).
@@ -38,6 +38,8 @@ _GRADIENTS = {
     # a heat camera: cold blue up through red to white-hot
     # the Ring logo's teal, deep at the bottom
     "teal":    [(0.0, (0, 70, 80)), (0.55, (40, 190, 170)), (0.85, (63, 224, 197)), (1.0, (210, 255, 245))],
+    # a green-screen terminal: deep green up to pale mint (Matrix, Scope)
+    "phosphor": [(0.0, (0, 40, 8)), (0.5, (0, 170, 40)), (0.85, (60, 255, 90)), (1.0, (200, 255, 210))],
     "thermal": [(0.0, (20, 0, 120)), (0.3, (150, 0, 160)), (0.55, (240, 30, 40)),
                 (0.8, (255, 170, 0)), (1.0, (255, 255, 230))],
 }

@@ -86,3 +86,31 @@ def test_spotify_speakers_when_owntone_is_absent(monkeypatch, tmp_path):
     monkeypatch.setattr(webapp, "_owntone", down)
     assert c.get("/spotify/speakers").get_json() == {"ok": False, "speakers": []}
     assert c.post("/spotify/speakers", data={"speaker": "1"}).status_code == 502
+
+
+def test_old_sensitivity_setting_is_translated_to_the_new_scale(tmp_path, monkeypatch):
+    import json
+    import state
+    p = tmp_path / "state.json"
+    p.write_text(json.dumps({"sensitivity": 1}))
+    monkeypatch.setattr(state, "STATE_PATH", str(p))
+    s = state.read_state()
+    assert s["sensitivity"] == 50 and s["sensitivity_scale"] == 2   # the same 20 dB as before
+    p.write_text(json.dumps({"sensitivity": 30, "sensitivity_scale": 2}))
+    assert state.read_state()["sensitivity"] == 30                  # already new: left alone
+
+
+def test_album_cover_previews_use_the_cover(monkeypatch, tmp_path):
+    import numpy as np
+    from io import BytesIO
+    from PIL import Image
+    c = client(monkeypatch, tmp_path)
+    import app as webapp
+    cover = tmp_path / "cover.png"
+    monkeypatch.setattr(webapp, "COVER_PATH", str(cover))
+    plain = np.asarray(Image.open(BytesIO(c.get("/style/bars.png").data)).convert("RGB"))
+    Image.new("RGB", (64, 64), (230, 20, 20)).save(cover)        # a red sleeve
+    red = np.asarray(Image.open(BytesIO(c.get("/style/bars.png").data)).convert("RGB"))
+    lit = red.sum(axis=2) > 60
+    assert lit.any() and np.median(red[lit][:, 0]) > 2 * np.median(red[lit][:, 2])   # red bars
+    assert not (plain == red).all()                                    # without it: Warm white

@@ -15,7 +15,7 @@ Usage:
     python3 equalize.py [<spotify_username> <path_to_.cache_token>]
 
 Spotify is optional. Without it everything works except the "Spotify only"
-mode, the song name on the dashboard and the album-cover colour theme.
+mode; the song name and the album-cover colours then come from AirPlay alone.
 
 Matrix hardware options come from config/rgb_options.ini.
 """
@@ -32,6 +32,7 @@ from io import BytesIO
 # Runs as root (GPIO), so any __pycache__ it wrote would be root-owned.
 sys.dont_write_bytecode = True
 
+import numpy as np
 import requests
 from PIL import Image
 
@@ -41,7 +42,8 @@ from display_logic import (compute_effective, effective_brightness, panel_config
 from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for
 from styles import STYLES, draw as draw_style
 from spectrum import Analyzer, BarSmoother
-from state import PREVIEW_PATH, read_state, write_status
+from song_info import STRIP_H, AirPlayMeta, Banner, cover_art, now_playing, text_colour
+from state import COVER_PATH, PREVIEW_PATH, read_state, write_status
 
 DIR = os.path.dirname(__file__)
 CONFIG_PATH = os.path.abspath(os.path.join(DIR, "..", "config", "rgb_options.ini"))
@@ -126,6 +128,16 @@ def save_preview(img):
     os.replace(tmp, PREVIEW_PATH)
 
 
+def save_cover(art):
+    tmp = COVER_PATH + ".tmp"
+    try:
+        os.makedirs(os.path.dirname(COVER_PATH), exist_ok=True)
+        art.copy().resize((64, 64)).save(tmp, "PNG")
+        os.replace(tmp, COVER_PATH)
+    except Exception as e:
+        log.debug("couldn't save the cover: %s", e)
+
+
 def _stop_on_sigterm(signum, frame):
     # systemctl stop (e.g. handing the panel to Spotipi Photo) sends SIGTERM;
     # treat it like Ctrl-C so the panel is cleared on the way out.
@@ -151,10 +163,13 @@ def main():
     source_kind = state.get("audio_source")
     last_source_try = time.time()
     detector = SoundDetector()
+    airplay_meta = AirPlayMeta()          # the song's name, as the AirPlay sender tells it
+    banner = Banner()
 
     analyzer = smoother = field = None
     look_key = None
-    shown = "vapor"
+    shown = "mono"
+    shown_art = None
     brightness = None
     effective = "off"
     has_sound = False
@@ -216,24 +231,42 @@ def main():
                     smoother = BarSmoother(n_bars)
                     look_key = None
 
-                theme = state.get("theme", "mono")
-                theme = theme if theme in THEMES else "mono"
-                new_look = (theme, n_bars, id(spotify.art) if theme == "album" else None)
+                theme = state.get("theme", "album")
+                theme = theme if theme in THEMES else "album"
+                art = cover_art(getattr(source, "via", None), airplay_meta, spotify.info, spotify.art)
+                if art is not None and art is not shown_art:
+                    shown_art = art
+                    save_cover(art)                  # for the control panel's previews
+                new_look = (theme, n_bars, id(art) if theme == "album" else None)
                 if new_look != look_key:
-                    palette = album_palette(spotify.art, n_bars) if theme == "album" else None
-                    # "album" with no usable cover (no Spotify, or a black-and-white
-                    # sleeve) falls back to rainbow rather than going blank
-                    shown = "rainbow" if theme == "album" and palette is None else theme
+                    palette = album_palette(art, n_bars) if theme == "album" else None
+                    # "album" with no usable cover (nothing sent, or a black-and-
+                    # white sleeve) falls back to Warm white rather than going blank
+                    shown = "mono" if theme == "album" and palette is None else theme
                     field = colour_field(shown, n_bars, height, palette)
                     look_key = new_look
 
                 target = analyzer.process(samples, state.get("sensitivity", 50), dt)
                 levels, peaks = smoother.update(target, dt)
                 style = state.get("style", "ledring")
+
+                # the song's name: a strip along the bottom, if chosen
+                song_mode = state.get("song_text", "off")
+                banner.update(now_playing(getattr(source, "via", None), airplay_meta, spotify.info)
+                              if song_mode != "off" else None, now)
+                strip = banner.showing(song_mode, width, now)
+                pic_h = height - STRIP_H if strip and song_mode == "always" else height
                 img = draw_style(style if style in STYLES else "ledring", levels, peaks,
-                                 width, height, field, peak_colour=peak_colour_for(shown),
+                                 width, pic_h, field if pic_h == height else field[np.linspace(0, height - 1, pic_h).astype(int)],
+                                 peak_colour=peak_colour_for(shown),
                                  show_peaks=bool(state.get("peaks", True)), wave=samples,
                                  dance_lanes=int(state.get("dance_lanes", 4)), dt=dt)
+                if pic_h != height:
+                    full = Image.new("RGB", (width, height))
+                    full.paste(img, (0, 0))
+                    img = full
+                if strip:
+                    img = banner.draw(img, text_colour(field), now)
                 canvas.SetImage(img)
                 canvas = matrix.SwapOnVSync(canvas)
 
@@ -249,14 +282,15 @@ def main():
             if now - last_status >= STATUS_SECONDS:
                 last_status = now
                 info = spotify.info
+                playing = now_playing(getattr(source, "via", None), airplay_meta, info)
                 write_status({
                     "effective": effective,
                     "has_sound": has_sound,
                     "via": getattr(source, "via", None),      # "airplay", "spotify" or None
                     "spotify_enabled": not isinstance(spotify, NoSpotify),
                     "is_playing": bool(info.get("is_playing")),
-                    "song": info.get("name"),
-                    "artist": info.get("artist"),
+                    "song": playing[0] if playing else None,
+                    "artist": playing[1] if playing else None,
                     "brightness": brightness,
                     "panel": "%dx%d" % (width, height),
                     "fps": round(fps_measured, 1),
@@ -264,6 +298,8 @@ def main():
                     "source_device": source.device_name,
                     "source_error": source.error,
                     "bars": analyzer.n_bars if analyzer else None,
+                    # where the colours come from: "cover", or the theme shown instead
+                    "colours": "cover" if state.get("theme") == "album" and shown == "album" else shown,
                 })
 
             # --- pace the loop (slower while dark, but still listening) ---

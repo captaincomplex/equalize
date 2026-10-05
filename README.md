@@ -13,6 +13,8 @@
 | ![Mirror](docs/style-mirror.gif) | ![Wave](docs/style-wave.gif) | ![Waterfall](docs/style-waterfall.gif) | ![Needle](docs/style-vu.gif) |
 | **Analyser** (Classic) | **Scope** (Ocean) | **Trails** (Fire) | **Plasma** (Aurora) |
 | ![Analyser](docs/style-analyser.gif) | ![Scope](docs/style-scope.gif) | ![Trails](docs/style-trails.gif) | ![Plasma](docs/style-plasma.gif) |
+| **Matrix** (Phosphor) | | | |
+| ![Matrix](docs/style-matrix.gif) | | | |
 
 A graphic equaliser for an RGB LED matrix on a Raspberry Pi. Play music on your
 Sonos from your iPhone, and the panel on the wall bounces along to it: bass on
@@ -82,8 +84,9 @@ Spotify app --("Equalize")--> librespot (Raspotify) --pipe--> OwnTone
 ```
 
 ### Styles
-Sixteen ways to draw the music, plus plain bars. The first three match the
-logos (you choose the logo at the bottom of the control panel):
+Seventeen ways to draw the music, plus plain bars. The control panel groups
+them: *Rings*, *Bars and meters*, *Waves*, and *Effects and games*. The first
+three here match the logos (you choose the logo at the bottom of the control panel):
 - **LED ring** (default): rings of LED dots round the middle, the inner ring
   always faintly lit, each spoke lighting outward further where it's louder.
 - **Ring**: rays round an empty circle, longer where it's louder.
@@ -124,6 +127,9 @@ music players of the early 2000s:
   flies out of the middle towards you, as in MilkDrop or Windows Media Player.
 - **Plasma**: slow flowing colour, pushed into ripples by the bass, like
   Media Player's "Ambience". Brighter when the music is louder.
+- **Matrix** (best in Phosphor): the film's digital rain. Columns of tiny
+  symbols fall, a bright head and a fading tail; each column follows its own
+  part of the music, so a louder note sends more streams, faster and longer.
 
 Every style works with every colour theme and every panel size. (Equals keeps
 its cyan reflection with *vapor*; with other colours it reflects their own.) Pick one in
@@ -136,13 +142,24 @@ the web panel, which shows a live preview of each.
 - **Always on**: bars even in silence (a faint floor row).
 - **Off**.
 
-Plus: live **brightness**, **colours** (*warm white*, the default; vapor,
-classic, rainbow, ice, sunset, fire, ocean, forest, aurora, amber, pastel,
-thermal and teal; and *album*, which takes the bar
-colours from the cover of the song playing, and needs the Spotify login),
-**number of bars**, **sensitivity**, **peak caps**, a **screen timer**, **quiet
-hours** and a **sunrise/sunset dimmer**, all as in Spotipi Photo. A live
-dashboard shows a snapshot of the panel, the song, and the frame rate.
+Plus: live **brightness**, **colours** (*album cover*, the default, takes the
+colours from the sleeve of the song playing: over AirPlay from any app that
+sends one, Apple Music and Spotify included, or from the Spotify login; with no
+cover it shows *warm white*. Or choose vapor, classic, rainbow, ice, sunset,
+fire, ocean, forest, aurora, amber, warm white, pastel, thermal, teal or
+phosphor), **number of bars** (Auto, 4, 8, 16, 32 or 64), **sensitivity**,
+**peak caps**, the **song name** along the bottom of the panel (off, for a few
+seconds when the song changes, or always), a **screen timer**, **quiet hours**
+and a **sunrise/sunset dimmer**, all as in Spotipi Photo. A live dashboard shows
+a snapshot of the panel, the song, where the colours are coming from, and the
+frame rate. Every section of the control panel folds away; *Colours* and
+*Schedule* start folded.
+
+**Sensitivity** sets how far below the loudest part of the music still lights
+a bar: 8 dB at 1 (only the strongest notes) to 33 dB at 100, about 20 dB at
+50. Until 5 Oct 2026 the scale ran 20-70 dB, which filled the panel with most
+music; a setting saved before then is translated, so 1 on the old scale is 50
+on the new one and the panel looks the same.
 
 ## Hardware
 
@@ -310,5 +327,10 @@ as that licence requires.
 - **Bars early or late against the Sonos**: change
   `audio_backend_latency_offset_in_seconds` in `/etc/shairport-sync.conf`
   (negative = earlier), then `sudo systemctl restart shairport-sync`.
+- **No song name, or Album cover shows Warm white, over AirPlay**: the AirPlay
+  receiver has to be built to pass them on. `shairport-sync -V` should include
+  `-metadata`; if not, run `sudo bash install_pi.sh` again (it rebuilds it once,
+  10-20 minutes). Some apps send no cover; the dashboard's *Colours* line says
+  "no cover yet" then.
 - **Panel flickers**: raise `gpio_slowdown` in `config/rgb_options.local.ini`, restart
   `equalize`. Check `dtparam=audio=off` is set.

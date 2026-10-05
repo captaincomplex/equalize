@@ -15,25 +15,27 @@ import subprocess
 import sys
 import time
 
+from PIL import Image
+
 sys.dont_write_bytecode = True      # runs as root; keep __pycache__ out
 
 from flask import Flask, Response, jsonify, redirect, render_template, request, send_file, url_for
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from display_logic import panel_config_paths, panel_geometry, read_panel_config  # noqa: E402
-from render import THEMES, auto_bars, colour_field, peak_colour_for, theme_css  # noqa: E402
-from styles import STYLE_LABELS, STYLES, draw, sample_levels  # noqa: E402
-from state import PREVIEW_PATH, read_state, read_status, reset_timer, write_state  # noqa: E402
+from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for, theme_css  # noqa: E402
+from styles import STYLE_GROUPS, STYLE_LABELS, STYLES, draw, sample_levels  # noqa: E402
+from state import COVER_PATH, PREVIEW_PATH, read_state, read_status, reset_timer, write_state  # noqa: E402
 
 app = Flask(__name__)
 
 VALID_MODES = {"on", "spotify", "always", "off"}
 VALID_SOURCES = {"airplay", "demo"}
-BAR_CHOICES = [0, 8, 16, 32, 64]
+BAR_CHOICES = [0, 4, 8, 16, 32, 64]
 THEME_LABELS = {"vapor": "Vapor", "classic": "Classic", "rainbow": "Rainbow",
                 "ice": "Ice", "sunset": "Sunset", "fire": "Fire", "ocean": "Ocean",
                 "forest": "Forest", "aurora": "Aurora", "amber": "Amber",
-                "mono": "Warm white", "pastel": "Pastel", "thermal": "Thermal", "teal": "Teal",
+                "mono": "Warm white", "pastel": "Pastel", "thermal": "Thermal", "teal": "Teal", "phosphor": "Phosphor",
                 "album": "Album cover"}
 VALID_SHARE = {"auto", "equalize", "spotipi"}
 CONFIG_INI = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "rgb_options.ini"))
@@ -112,11 +114,13 @@ def done():
 
 @app.route("/")
 def index():
-    themes = [(t, THEME_LABELS.get(t, t.title()), theme_css(t)) for t in THEMES]
-    styles = [(st, STYLE_LABELS[st]) for st in STYLES]
+    # Album cover first: the default
+    themes = [(t, THEME_LABELS.get(t, t.title()), theme_css(t))
+              for t in sorted(THEMES, key=lambda t: t != "album")]
+    style_groups = [(g, [(st, STYLE_LABELS[st]) for st in members]) for g, members in STYLE_GROUPS]
     w, h = panel_size()
     return render_template("index.html", s=read_state(), dash=dashboard(),
-                           themes=themes, styles=styles, bar_choices=BAR_CHOICES,
+                           themes=themes, theme_names=THEME_LABELS, style_groups=style_groups, bar_choices=BAR_CHOICES,
                            panel_aspect="%d / %d" % (w, h), ui_skins=UI_SKINS, logos=LOGOS)
 
 
@@ -128,10 +132,20 @@ def style_preview(name):
     state = read_state()
     w, h = panel_size()
     n = int(state.get("bars") or 0) or auto_bars(w)
-    theme = state.get("theme", "mono")
-    theme = "rainbow" if theme == "album" else theme if theme in THEMES else "mono"
+    theme = state.get("theme", "album")
+    theme = theme if theme in THEMES else "album"
+    palette = None
+    if theme == "album":
+        # the cover of the last song played, as the display program saved it
+        try:
+            with Image.open(COVER_PATH) as art:
+                palette = album_palette(art.convert("RGB"), n)
+        except (OSError, ValueError):
+            palette = None
+        if palette is None:
+            theme = "mono"                     # what the panel shows with no cover
     levels, peaks = sample_levels(n)
-    img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme),
+    img = draw(name, levels, peaks, w, h, colour_field(theme, n, h, palette), peak_colour_for(theme),
                still=True, dance_lanes=int(state.get("dance_lanes", 4)))
     buf = io.BytesIO()
     img.save(buf, "PNG")
@@ -173,13 +187,15 @@ def set_look():
     state = read_state()
     style = request.form.get("style", "ledring")
     state["style"] = style if style in STYLES else "ledring"
-    theme = request.form.get("theme", "mono")
-    state["theme"] = theme if theme in THEMES else "mono"
+    theme = request.form.get("theme", "album")
+    state["theme"] = theme if theme in THEMES else "album"
     bars = _int("bars", 0, 0, 128)
     state["bars"] = bars if bars in BAR_CHOICES else 0
     state["peaks"] = request.form.get("peaks") == "on"
     state["sensitivity"] = _int("sensitivity", 50, 1, 100)
     state["dance_lanes"] = 8 if request.form.get("dance_lanes") == "8" else 4
+    song = request.form.get("song_text", "off")
+    state["song_text"] = song if song in ("off", "change", "always") else "off"
     write_state(state)
     return done()
 
