@@ -267,10 +267,11 @@ overwrite it. If the new version doesn't start properly, the Pi goes back to
 the one before. When Spotipi Photo shares the Pi, the installer sets up its
 updates too. Log: `journalctl -u 'equalize-update*'`.
 
-**Releasing** (for whoever makes the change): merge to `main`, then tag that
-commit with the next version and push the tag, e.g.
-`git tag -a v1.1.0 -m "what changed" && git push origin v1.1.0`. Pis install
-it that night. Nothing reaches them without a tag.
+**Releasing** (for whoever makes the change): put the next version number in
+`VERSION` (e.g. `1.1.0`) in the pull request. When it is merged, GitHub runs
+the tests and, if they pass, tags that commit `v1.1.0`
+(`.github/workflows/release.yml`). Pis install it that night. Nothing reaches
+them without a tag, and no tag without the tests passing.
 
 ## Decisions
 
