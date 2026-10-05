@@ -22,6 +22,11 @@ SHAIRPORT_TAG="5.5.2"       # released 9 Sep 2026
 NQPTP_TAG="1.2.8"           # released 13 May 2026
 
 INSTALL_PATH="$(cd "$(dirname "$0")" && pwd)"
+# --update: run by the updater (python/updater.py) after it installs a new
+# release. Asks nothing: keeps the Spotify login and the Spotify Connect
+# choice as they are, and leaves the panel with whichever program has it.
+UPDATE=0
+[ "${1:-}" = "--update" ] && UPDATE=1
 SRC_DIR=/usr/local/src
 NEEDS_REBOOT=0
 PROBLEMS=()
@@ -188,7 +193,7 @@ else
   note "Leave blank and press Enter to skip. You can re-run this script later."
   PROMPT="    Spotify username (blank to skip): "
 fi
-read -rp "${PROMPT}" SPOTIFY_USERNAME
+if [ "$UPDATE" = "1" ]; then SPOTIFY_USERNAME=""; else read -rp "${PROMPT}" SPOTIFY_USERNAME; fi
 if [ -z "${SPOTIFY_USERNAME}" ] && [ -n "${OLD_ARGS}" ] && [ -f "${OLD_CONF}" ]; then
   SP_ARGS="${OLD_ARGS}"
   KEEP_SPOTIFY=1
@@ -214,8 +219,12 @@ note "device list as \"Equalize\": pick it, and the Pi plays the music on to the
 note "speakers you choose (over AirPlay 2) and draws it in step. AirPlay stays"
 note "as it is. Adds Raspotify and OwnTone (about 10 minutes to build OwnTone)."
 SPOTIFY_CONNECT=0
-read -rp "    Set up Spotify Connect? [y/N] " ANSWER
-case "${ANSWER}" in [yY]*) SPOTIFY_CONNECT=1 ;; esac
+if [ "$UPDATE" = "1" ]; then
+  dpkg -s raspotify >/dev/null 2>&1 && SPOTIFY_CONNECT=1    # keep it if it's there
+else
+  read -rp "    Set up Spotify Connect? [y/N] " ANSWER
+  case "${ANSWER}" in [yY]*) SPOTIFY_CONNECT=1 ;; esac
+fi
 
 # ---------------------------------------------------------------------------
 say "Sharing a Pi with Spotipi Photo?"
@@ -247,6 +256,8 @@ say "Services"
 mkdir -p "${INSTALL_PATH}/config"
 chmod 777 "${INSTALL_PATH}/config" 2>/dev/null
 
+WAS_SHOWING=0
+systemctl is-active --quiet equalize && WAS_SHOWING=1
 systemctl stop equalize equalize-web 2>/dev/null
 rm -rf /etc/systemd/system/equalize.service.d
 cp "${INSTALL_PATH}/config/equalize.service" /etc/systemd/system/
@@ -318,7 +329,26 @@ fi
 systemctl disable equalize >/dev/null 2>&1
 [ "$SHARED" = "1" ] && systemctl disable spotipi >/dev/null 2>&1
 systemctl enable equalize-panel >/dev/null 2>&1
-/usr/local/bin/equalize-panel boot
+if [ "$UPDATE" = "1" ] && [ "$WAS_SHOWING" = "1" ]; then
+  systemctl start equalize                  # an update: Equalize had the panel, so it keeps it
+elif [ "$UPDATE" = "1" ] && systemctl is-active --quiet spotipi 2>/dev/null; then
+  :                                         # an update: Spotipi Photo had it, so it keeps it
+else
+  /usr/local/bin/equalize-panel boot
+fi
+
+# Updates: a check every night, installing new releases if the control
+# panel's "Automatic updates" is on (python/updater.py).
+cp "${INSTALL_PATH}/config/equalize-update.service" "${INSTALL_PATH}/config/equalize-update.timer" /etc/systemd/system/
+sed -i "/\[Service\]/a ExecStart=${PYTHON} ${INSTALL_PATH}/python/updater.py check --auto" /etc/systemd/system/equalize-update.service
+systemctl daemon-reload
+systemctl enable --now equalize-update.timer >/dev/null 2>&1 || problem "the nightly update check wouldn't start"
+# Spotipi Photo on this Pi too: set up its own updates as well, so neither
+# needs updating by hand (its tools/install_updater.sh asks nothing).
+SPOTIPI_ROOT=$(sed -n 's|^ExecStart=.* \(\S*\)/python/displaySpotipi\.py.*|\1|p' /etc/systemd/system/spotipi.service 2>/dev/null | head -1)
+if [ -n "${SPOTIPI_ROOT}" ] && [ -f "${SPOTIPI_ROOT}/tools/install_updater.sh" ]; then
+  bash "${SPOTIPI_ROOT}/tools/install_updater.sh" || problem "Spotipi Photo's update check wouldn't start"
+fi
 
 if [ "${SPOTIFY_CONNECT}" = "1" ]; then
   say "Spotify Connect"

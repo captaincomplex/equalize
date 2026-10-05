@@ -175,3 +175,21 @@ def test_a_panel_setting_that_differs_is_explained(monkeypatch, tmp_path):
     page = c.get("/").get_data(as_text=True)
     assert "Panel setting gpio_slowdown</b>: 2 here, 4 in Spotipi Photo" in page
     assert "take it out there" in page
+
+
+def test_updates_section(monkeypatch, tmp_path):
+    import json
+    c = client(monkeypatch, tmp_path)
+    import app as webapp
+    status = tmp_path / "update.json"
+    status.write_text(json.dumps({"current": "v1.0.0", "latest": "v1.1.0", "available": "v1.1.0"}))
+    monkeypatch.setattr(webapp, "UPDATE_STATUS", str(status))
+    page = c.get("/").get_data(as_text=True)
+    assert "Updates" in page and "v1.0.0" in page and 'name="auto_update" checked' in page
+    assert c.get("/status").get_json()["update"]["available"] == "v1.1.0"
+    c.post("/update/auto", data={})
+    assert state.read_state()["auto_update"] is False
+    started = []
+    monkeypatch.setattr(webapp.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
+    assert c.post("/update/now", headers={"X-Requested-With": "XMLHttpRequest"}).status_code == 200
+    assert started and started[0][0] == "systemd-run" and started[0][-1] == "apply"

@@ -1,0 +1,12 @@
+[Unit]
+Description=Equalize: nightly update check
+
+[Timer]
+# Between 03:30 and 04:30, when nobody is likely to be listening. Persistent:
+# if the Pi was off then, it checks soon after it next starts.
+OnCalendar=*-*-* 03:30
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

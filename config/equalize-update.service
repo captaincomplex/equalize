@@ -1,0 +1,9 @@
+[Unit]
+Description=Equalize: check for a new release, and install it if automatic updates are on
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# ExecStart is appended by install_pi.sh. Root, so it can restart the services.
+Type=oneshot
+TimeoutStartSec=45min

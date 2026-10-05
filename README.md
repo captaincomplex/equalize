@@ -247,8 +247,36 @@ Expect a pause of a couple of seconds while the panel changes hands.
 restarts it while the equaliser is showing, Spotipi Photo takes the panel back
 until the next AirPlay session.
 
+## Updates
+
+The Pi updates itself from this project's **releases** on GitHub: numbered,
+tested versions (v1.1.0), never whatever the code is that day.
+`python/updater.py` checks every night between 03:30 and 04:30
+(`equalize-update.timer`). The control panel's **Updates** section shows
+this Pi's version and the newest, with **Update now**, **Check now** and
+**Automatic updates** (on unless you turn it off). An update waiting is also
+shown under the panel picture.
+
+An update moves the program forward to that release, then runs
+`install_pi.sh --update` (the installer without its questions: the Spotify
+login and the Spotify Connect choice stay as they are, and the panel stays
+with whichever program has it) and checks everything comes back. It never
+touches settings, the Spotify login or the panel's own settings. If any
+program file has been edited on the Pi it stops and says which, rather than
+overwrite it. If the new version doesn't start properly, the Pi goes back to
+the one before. When Spotipi Photo shares the Pi, the installer sets up its
+updates too. Log: `journalctl -u 'equalize-update*'`.
+
+**Releasing** (for whoever makes the change): merge to `main`, then tag that
+commit with the next version and push the tag, e.g.
+`git tag -a v1.1.0 -m "what changed" && git push origin v1.1.0`. Pis install
+it that night. Nothing reaches them without a tag.
+
 ## Decisions
 
+- **5 Oct 2026: updates come from release tags** (v1.0.0 ...), read from
+  GitHub with `git ls-remote` (the repository is public: no login, and no
+  GitHub API limits), never from the newest code on `main`.
 - **5 Oct 2026: song-name letters.** Drawn over the picture in a choice of
   three pixel fonts: X11 5x7 (medium, the default; about 10 letters across a
   64-wide panel), Tom Thumb (small, about 16) and ChicagoFLF (large, the

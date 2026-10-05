@@ -425,6 +425,7 @@
       </ul>
     </div>
     <p class="problem" id="problem" role="status"></p>
+    <p class="hint" id="update-note" hidden></p>
   </details>
 </section>
 
@@ -637,6 +638,32 @@
   </details>
 </section>
 
+<section class="unit" aria-labelledby="upd-h">
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Update</span><span class="screw"></span></div>
+  <details class="face" data-fold="upd">
+    <summary><h2 id="upd-h">Updates<span class="chev" aria-hidden="true"></span></h2></summary>
+    <ul class="chips" aria-label="Version">
+      <li class="wide">This Pi <b id="up-current">{{ dash["update"].current or "–" }}</b></li>
+      <li class="wide">Newest <b id="up-latest">{{ dash["update"].latest or "–" }}</b></li>
+    </ul>
+    <p class="hint" id="up-line"></p>
+    <form method="post" action="/update/now" data-autosave id="up-now-form" hidden>
+      <button class="link-button" type="submit" id="up-now">Update now</button>
+    </form>
+    <form method="post" action="/update/check" data-autosave>
+      <button class="link-button" type="submit">Check now</button>
+    </form>
+    <hr>
+    <form method="post" action="/update/auto" data-autosave>
+      <label class="switch"><span>Automatic updates</span>
+        <input type="checkbox" role="switch" name="auto_update" {{ 'checked' if s.auto_update }}></label>
+    </form>
+    <p class="hint">Checked every night between 03:30 and 04:30. A new release is installed then
+      if this is on; otherwise it waits for <b>Update now</b>. Your settings are never touched, and
+      if a new version doesn't start properly the Pi goes back to the one before.</p>
+  </details>
+</section>
+
 <section class="unit" aria-labelledby="page-h">
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Page</span><span class="screw"></span></div>
   <details class="face" data-fold="page" open>
@@ -793,11 +820,34 @@ async function refresh() {
     if (d.state.mode === "spotify" && st.spotify_enabled === false)
       probs.push("Spotify mode needs the Spotify login: run generate-token.sh, then the installer again.");
     $("problem").textContent = probs.join(" ");
+    showUpdate(d.update || {});
   } catch (e) {
     $("alive").className = "dot"; $("headline").textContent = "Can't reach the Pi";
   }
   $("preview").src = "/preview.png?" + Date.now();
 }
+// ---- updates ----
+let wasUpdating = false;
+function showUpdate(u) {
+  $("up-current").textContent = u.current || "–";
+  $("up-latest").textContent = u.latest || "–";
+  const when = u.checked ? new Date(u.checked * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : null;
+  let line = u.updating ? `Updating to ${u.updating}… the control panel will be back in a minute or two.`
+    : u.error ? u.error
+    : u.available ? `${u.available} is ready to install.`
+    : u.current ? "Up to date." : "Not checked yet.";
+  if (u.last && !u.updating) line += " " + u.last;
+  if (when && !u.updating) line += ` Last checked ${when}.`;
+  $("up-line").textContent = line;
+  $("up-now-form").hidden = !u.available || !!u.updating;
+  $("up-now").textContent = u.available ? `Update now to ${u.available}` : "Update now";
+  const note = $("update-note");
+  note.hidden = !u.available && !u.updating;
+  note.textContent = u.updating ? `Updating to ${u.updating}…` : u.available ? `Update available: ${u.available} (see Updates, below).` : "";
+  if (wasUpdating && !u.updating) location.reload();      // the new version's page
+  wasUpdating = !!u.updating;
+}
+
 function esc(s) { return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
 refresh(); setInterval(refresh, 1000);
 </script>
