@@ -1,0 +1,38 @@
+name: Release
+
+# When a merge to main changes VERSION: run the tests, and if they pass, tag
+# that commit vX.Y.Z. Pis install tagged releases only (python/updater.py),
+# so nothing reaches them that hasn't passed the tests here.
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.13"          # as on Raspberry Pi OS (Debian 13)
+      - name: Tests
+        run: |
+          pip install --quiet numpy pillow flask requests spotipy pytest
+          python -m pytest -q
+      - name: Tag the release
+        run: |
+          v="v$(tr -d '[:space:]' < VERSION)"
+          if git rev-parse -q --verify "refs/tags/$v" >/dev/null; then
+            echo "$v is already released"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$v" -m "Release $v"
+          git push origin "$v"
