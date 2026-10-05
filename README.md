@@ -228,7 +228,8 @@ equalize/
 │   ├── generateToken.py
 │   └── client/               # web panel
 ├── tools/preview.py          # animated preview on any computer
-├── image/make_logo.py        # builds the logo, icons, favicon and banner from one geometry
+├── image/build_logos.py      # the three logos (LED ring, Ring, LED grid), icons and banner
+├── image/make_logo.py        # the first, vaporwave logo (no longer used)
 ├── tests/
 ├── GLOSSARY.md               # every technical term, in plain English
 └── TODO.md
