@@ -42,7 +42,7 @@ from display_logic import (compute_effective, effective_brightness, panel_config
 from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for
 from styles import STYLES, draw as draw_style
 from spectrum import Analyzer, BarSmoother
-from song_info import STRIP_H, AirPlayMeta, Banner, cover_art, now_playing, text_colour
+from song_info import AirPlayMeta, Banner, cover_art, now_playing, strip_height, text_colour
 from state import COVER_PATH, PREVIEW_PATH, read_state, write_status
 
 DIR = os.path.dirname(__file__)
@@ -274,7 +274,7 @@ def main():
                 banner.update(now_playing(getattr(source, "via", None), airplay_meta, spotify.info)
                               if song_mode != "off" else None, now)
                 strip = banner.showing(song_mode, width, now)
-                pic_h = height - STRIP_H if strip and song_mode == "always" else height
+                pic_h = height - strip_height() if strip and song_mode == "always" else height
                 img = draw_style(style if style in STYLES else "ledring", levels, peaks,
                                  width, pic_h, field if pic_h == height else field[np.linspace(0, height - 1, pic_h).astype(int)],
                                  peak_colour=peak_colour_for(shown),

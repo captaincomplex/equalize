@@ -149,17 +149,29 @@ def now_playing(via, airplay_meta, spotify_info):
 
 
 # ---------------------------------------------------------------- drawing
-STRIP_H = 12                 # the font's 11 rows, and one dark row above
 SCROLL_PX_S = 18             # slow enough to read across a room
 CHANGE_SHOW_S = 8.0          # "when the song changes": at least this long
 
+# ChicagoFLF, a public-domain copy of Chicago, the original Macintosh and
+# iPod lettering (fonts/README-ChicagoFLF.txt).
+# Chosen 5 Oct 2026 from a shortlist: the boldest and easiest to read from
+# across a room. Drawn at 12 pixels, its own size, with every LED on or off.
+FONT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "ChicagoFLF.ttf")
+FONT_PX = 12
+TEXT_TOP = 0                 # accents (É) reach the top row ...
+TEXT_H = 14                  # ... and descenders (g, y) the bottom one
+
 
 def _font():
-    # Pillow's own pixel font: one colour, no smoothing, so every LED is
-    # either on or off. Latin-1 only (see _printable).
-    if hasattr(ImageFont, "load_default_imagefont"):
-        return ImageFont.load_default_imagefont()
-    return ImageFont.load_default()
+    global TEXT_H
+    try:
+        return ImageFont.truetype(FONT_PATH, FONT_PX)
+    except OSError:
+        # the file missing: Pillow's own pixel font, 11 rows tall
+        TEXT_H = 11
+        if hasattr(ImageFont, "load_default_imagefont"):
+            return ImageFont.load_default_imagefont()
+        return ImageFont.load_default()
 
 
 _FONT = None
@@ -188,14 +200,24 @@ def song_line(song):
 
 
 def text_mask(text):
-    """The words as a True/False array, one row per LED row (11 high)."""
+    """The words as a True/False array, one row per LED row (TEXT_H high)."""
     global _FONT
     if _FONT is None:
         _FONT = _font()
     w = max(1, int(_FONT.getbbox(text)[2])) if text else 1
-    im = Image.new("1", (w, 11))
-    ImageDraw.Draw(im).text((0, 0), text, font=_FONT, fill=1)
+    im = Image.new("1", (w, TEXT_H))
+    d = ImageDraw.Draw(im)
+    d.fontmode = "1"                                          # no smoothing
+    d.text((0, -TEXT_TOP), text, font=_FONT, fill=1)
     return np.asarray(im, dtype=bool)
+
+
+def strip_height():
+    """Rows the song's name takes at the bottom: the letters and a dark row above."""
+    global _FONT
+    if _FONT is None:
+        _FONT = _font()
+    return TEXT_H + 1
 
 
 def text_colour(field):
@@ -238,20 +260,21 @@ class Banner:
         """Paint the strip into the bottom rows of img (a PIL image)."""
         a = np.asarray(img).copy()
         h, w = a.shape[:2]
-        top = h - STRIP_H
+        th = self.mask.shape[0]
+        top = h - th - 1
         a[top:] = 0
         m = self.mask
         tw = m.shape[1]
         if tw <= w:
             x0 = (w - tw) // 2                                  # fits: centred, still
-            a[top + 1:, x0:x0 + tw][m] = colour
+            a[top + 1:top + 1 + th, x0:x0 + tw][m] = colour
         else:
             # enters from the right, leaves to the left, round again
             gap = w
             off = int((now - self.since) * SCROLL_PX_S) % (tw + gap)
             xs = np.arange(w) + off - w
             ok = (xs >= 0) & (xs < tw)
-            cols = np.zeros((11, w), dtype=bool)
+            cols = np.zeros((th, w), dtype=bool)
             cols[:, ok] = m[:, xs[ok]]
-            a[top + 1:][cols] = colour
+            a[top + 1:top + 1 + th][cols] = colour
         return Image.fromarray(a)
