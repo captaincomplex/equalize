@@ -30,7 +30,9 @@ def test_every_style_draws_at_every_size(style, w, h):
     assert px.any()
 
 
-@pytest.mark.parametrize("style", [s for s in STYLES if s != "vu"])
+# A needle swings rather than lights more; Dance arrows take a moment to
+# climb into view. Both have their own tests below.
+@pytest.mark.parametrize("style", [s for s in STYLES if s not in ("vu", "dance")])
 def test_louder_lights_more(style):
     n = auto_bars(64)
     quiet = frame(style, 64, 64, np.full(n, 0.1), np.full(n, 0.1)).sum()
@@ -203,19 +205,60 @@ def test_this_pis_own_settings_win(tmp_path):
     assert (d["hardware_mapping"], d["gpio_slowdown"], d["rows"]) == ("adafruit-hat-pwm", "4", "64")
 
 
-def test_dance_sends_arrows_up_on_a_beat_without_overlaps():
+def test_dance_finds_the_beat_and_lands_arrows_on_it():
+    # A kick every half second (120 beats a minute): the tracker should find
+    # the beat, and arrows planned from then on should land on kicks.
+    from styles import DANCE_TRAVEL_S, _dance, draw_dance
+    _dance.clear()
+    n = auto_bars(64)
+    f = colour_field("rainbow", n, 64)
+    quiet = np.zeros(n)
+    kick = np.r_[np.full(n // 4, 0.9), np.zeros(n - n // 4)]
+    dt = 1 / 40
+    for k in range(int(8 / dt)):                              # 8 seconds
+        draw_dance(kick if k % 20 == 0 else quiet, quiet, 64, 64, f, None, dt=dt)
+    st = next(iter(_dance.values()))
+    assert st.beat.period and abs(st.beat.period - 0.5) < 0.02
+    on_beat = [when for _, when, strength in st.arrows if strength >= 1.0]
+    assert on_beat, "on-beat arrows are on their way"
+    for when in on_beat:                                      # each lands on a kick (multiples of 0.5 s)
+        assert abs(((when + dt / 2) % 0.5) - dt / 2) < 2 * dt + 1e-9
+    assert all(when - st.t <= DANCE_TRAVEL_S + 1e-9 for _, when, _ in st.arrows)
+
+
+def test_dance_finds_the_beat_in_real_sound():
+    # The demo track (120 bpm) through the real analyser: a bass line that
+    # keeps the low bars near the top mustn't hide the kicks.
+    from audio_source import DemoSource
+    from styles import _dance, draw
+    from spectrum import Analyzer, BarSmoother
+    _dance.clear()
+    demo, n, dt = DemoSource(), auto_bars(64), 1 / 40
+    f = colour_field("rainbow", n, 64)
+    an, sm = Analyzer(demo.samplerate, n, 2048), BarSmoother(n)
+    for k in range(int(6 / dt)):
+        wave = demo.read(2048, now=1 + k * dt)
+        levels, peaks = sm.update(an.process(wave, 50, dt), dt)
+        draw("dance", levels, peaks, 64, 64, f, None, wave=wave, dt=dt)
+    st = next(iter(_dance.values()))
+    assert st.beat.period and abs(st.beat.period - 0.5) < 0.02
+    on_beat = [when + 1 for _, when, strength in st.arrows if strength >= 1.0]
+    assert on_beat
+    for when in on_beat:                                      # within 60 ms after a kick
+        assert (when % 0.5) < 0.06 or (when % 0.5) > 0.49
+
+
+def test_dance_shows_arrows_climbing_after_music_starts():
     from styles import _dance, draw_dance
     _dance.clear()
     n = auto_bars(64)
     f = colour_field("rainbow", n, 64)
-    quiet, bass = np.zeros(n), np.r_[np.full(n // 4, 0.9), np.zeros(n - n // 4)]
-    for k in range(60):                                       # a kick every 5 frames
-        draw_dance(bass if k % 5 == 0 else quiet, quiet, 64, 64, f, None)
-    st = next(iter(_dance.values()))
-    left = sorted(y for lane, y in st.arrows if lane == 0)
-    assert left, "the bass lane sent arrows"
-    assert all(b - a >= 12 for a, b in zip(left, left[1:]))   # spaced at least an arrow apart
-    assert not [1 for lane, _ in st.arrows if lane == 3]      # no treble, no right arrows
+    quiet = np.zeros(n)
+    first = np.asarray(draw_dance(quiet, quiet, 64, 64, f, None)).sum()
+    loud = np.r_[np.full(n // 4, 0.9), np.zeros(n - n // 4)]
+    for k in range(30):
+        px = np.asarray(draw_dance(loud if k % 10 == 0 else quiet, quiet, 64, 64, f, None))
+    assert px.sum() > first                                   # arrows on the way up
 
 
 def test_dance_eight_lanes_and_round_arrows():
@@ -233,4 +276,11 @@ def test_dance_eight_lanes_and_round_arrows():
     assert fill[1:4, 7].any()                                 # the tip is there
     ne, _ = _arrow(15, "NE")
     head, tail = ne[:7, 8:].sum(), ne[8:, :7].sum()
-    assert head > tail * 1.5                                  # the heavy end, the head, is up and right
+    assert head > tail and ne[:3, -4:].any()                  # points up and right: tip in that corner
+
+
+def test_arrows_match_in_every_direction():
+    from styles import DANCE_LANES, _arrow
+    for size in (7, 9, 11, 15, 21):
+        lit = [int(_arrow(size, d)[0].sum()) for d in DANCE_LANES[8]]
+        assert max(lit) <= min(lit) * 1.2, (size, lit)       # same weight whichever way it points

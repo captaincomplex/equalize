@@ -749,71 +749,160 @@ _ANGLE = {"N": 0, "NE": -45, "E": -90, "SE": -135, "S": 180, "SW": 135, "W": 90,
 _dance = {}
 
 
-def _pixel_arrow(size, diagonal):
-    """A small arrow built pixel by pixel (under 11 LEDs, where smoothing
-    only blurs it): pointing up, or up-right if diagonal. Its corners are
-    trimmed so it still reads as rounded."""
+def _small_arrow(size, direction):
+    """The same arrow at 7-10 LEDs, drawn straight onto the LED grid: a shaft
+    and two head lines of equal length, one LED thick. Built pointing up
+    (N) or up-right (NE), then turned in quarter turns, which on a grid of
+    LEDs is exact, so every direction matches."""
     n = size
-    y, x = np.mgrid[0:n, 0:n]
-    if not diagonal:
-        c = n // 2
-        head_rows = (n + 1) // 2
-        head = (y < head_rows) & (np.abs(x - c) <= y)
-        shaft = (y >= head_rows) & (np.abs(x - c) <= max(0, n // 6))
-        fill = head | shaft
-        fill[head_rows - 1, 0] = fill[head_rows - 1, n - 1] = False      # round the wing tips
-    else:
-        h = (n - 1) // 2                                     # the head's leg length
-        head = ((n - 1 - x) + y <= h + 1) & (x >= n - 2 - h) & (y <= h + 1)
-        shaft = np.abs(x + y - (n - 1)) <= max(1, n // 10)    # 3 LEDs wide up to 19
-        shaft &= (x <= n - 2) & (y >= 1)
-        fill = head | shaft
-        fill[0, n - 1] = False                               # round the point a touch
-    return fill
-
-
-@lru_cache(maxsize=64)
-def _arrow(size, direction):
-    """An arrow sprite: (fill, outline) masks, size x size. Small ones are
-    built pixel by pixel; bigger ones are drawn
-    eight times bigger, its corners softened, turned to point the way, then
-    shrunk to LED size."""
-    from PIL import ImageFilter
-    if size < 11 or len(direction) == 2:                    # diagonals: always pixel-built
-        turns = {"N": 0, "W": 1, "S": 2, "E": 3, "NE": 0, "NW": 1, "SW": 2, "SE": 3}[direction]
-        fill = np.rot90(_pixel_arrow(size, len(direction) == 2), turns)
-        pad = np.pad(fill, 1)
-        inner = pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:]
-        return fill.copy(), (fill & ~inner).copy()
-    k = 8
-    big = size * k
-    img = Image.new("L", (big, big))
+    img = Image.new("L", (n, n))
     d = ImageDraw.Draw(img)
-    c = big / 2
-    # Kept inside a circle round the middle, so turning it 45 degrees for a
-    # diagonal never clips it: tip at the top of the circle, wings and tail
-    # inside it.
-    r = big * 0.48
-    tip, wing, tail = c - r, c + r * 0.10, c + r * 0.95
-    half_w = r * 0.88                                        # the head's half-width
-    stem = r * 0.24                                          # the stem's half-width
-    d.polygon([(c, tip), (c + half_w, wing), (c + stem, wing), (c + stem, tail),
-               (c - stem, tail), (c - stem, wing), (c - half_w, wing)], fill=255)
-    img = img.filter(ImageFilter.GaussianBlur(big * 0.045)).point(lambda v: 255 if v > 110 else 0)
-    img = img.rotate(_ANGLE[direction], resample=Image.BICUBIC)
-    small = np.asarray(img.resize((size, size), Image.BOX), dtype=float) / 255
-    fill = small > 0.45
+    h = (n - 1) // 2 - (1 if n >= 9 else 0)                  # the head lines' length
+    if len(direction) == 1:                                  # straight: build N
+        c = (n - 1) // 2
+        d.line([(c, 0), (c, n - 1)], fill=255)
+        d.line([(c, 0), (c - h, h)], fill=255)
+        d.line([(c, 0), (c + h, h)], fill=255)
+        if n >= 9:                                           # thicken the head's sides
+            d.line([(c, 1), (c - h + 1, h)], fill=255)
+            d.line([(c, 1), (c + h - 1, h)], fill=255)
+        base = "N"
+    else:                                                    # diagonal: build NE
+        e = n - 1
+        d.line([(e, 0), (0, e)], fill=255)
+        d.line([(e, 0), (e - h - 1, 0)], fill=255)
+        d.line([(e, 0), (e, h + 1)], fill=255)
+        if n >= 9:
+            d.line([(e - 1, 1), (e - h, 1)], fill=255)
+            d.line([(e - 1, 1), (e - 1, h)], fill=255)
+        base = "NE"
+    fill = np.asarray(img) > 0
+    order = ("N", "W", "S", "E") if base == "N" else ("NE", "NW", "SW", "SE")
+    fill = np.rot90(fill, order.index(direction)).copy()
     pad = np.pad(fill, 1)
     inner = pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:]
     return fill, fill & ~inner
 
 
-class _Dance:
+@lru_cache(maxsize=64)
+def _arrow(size, direction):
+    """An arrow sprite, (fill, outline) masks of size x size, the same for
+    all eight directions: one arrow, turned, then drawn LED by LED.
+
+    It's drawn as three thick strokes with rounded ends -- a shaft and the
+    two sides of the head, like a bold arrow sign -- because a stroke turned
+    45 degrees stays a clean line of LEDs, where a solid triangle turned
+    45 degrees breaks up into a blob at this size."""
+    if size < 11:
+        return _small_arrow(size, direction)
+    k = 16                                                   # drawn 16x bigger, then shrunk
+    big = size * k
+    a = math.radians(_ANGLE[direction])
+    ca, sa = math.cos(a), math.sin(a)
+    r = big * 0.40                                           # leaves room for the strokes' width
+    c = big / 2
+
+    def at(x, y):                                            # arrow units (y down) -> pixels, turned
+        return (c + r * (x * ca + y * sa), c + r * (-x * sa + y * ca))
+
+    w = max(k * 1.6, big * 0.21)                             # stroke width: about a fifth of the arrow
+    img = Image.new("L", (big, big))
+    d = ImageDraw.Draw(img)
+    tip, tail = at(0, -1.0), at(0, 1.0)
+    for a_, b_ in ((tail, tip), (at(-0.78, -0.22), tip), (at(0.78, -0.22), tip)):
+        d.line([a_, b_], fill=255, width=int(w))
+        for p in (a_, b_):                                   # rounded ends
+            d.ellipse([p[0] - w / 2, p[1] - w / 2, p[0] + w / 2, p[1] + w / 2], fill=255)
+    cover = np.asarray(img, dtype=float).reshape(size, k, size, k).mean(axis=(1, 3)) / 255
+    fill = cover >= 0.42
+    pad = np.pad(fill, 1)
+    inner = pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:]
+    return fill, fill & ~inner
+
+
+class BeatTracker:
+    """Finds the tempo the way you'd tap along: note when each kick lands,
+    look at the gaps, and once three or more gaps agree (each folded into
+    80-180 beats a minute) that's the beat. It's fed how suddenly the low end
+    got louder (an "onset"), not how loud it is, so a bass line that never
+    lets up, or the sensitivity setting, doesn't hide the kicks."""
+
     def __init__(self):
-        self.arrows = []                                     # [lane, y (float, from the top)]
-        self.avg = np.zeros(8)
-        self.cool = np.zeros(8)                              # frames until a lane may fire again
-        self.flash = np.zeros(8)
+        self.top = 0.0                                        # the strongest recent onset
+        self.last_hit = -9.0
+        self.hits = []
+        self.period = None                                    # seconds per beat, once sure
+
+    def update(self, t, onset, dt=1 / 40):
+        """Feed one moment's onset strength; returns True on a hit."""
+        self.top = max(onset, self.top * 0.5 ** (dt / 3.0))   # forgets over a few seconds
+        hit = (onset > 0.05 and onset > 0.55 * self.top and t - self.last_hit > 0.3)
+        if not hit:
+            return False
+        self.last_hit = t
+        self.hits = [h for h in self.hits if t - h < 6.0] + [t]
+        gaps = []
+        for a, b in zip(self.hits, self.hits[1:]):
+            g = b - a
+            while g > 0.75:
+                g /= 2
+            while g < 0.333:
+                g *= 2
+            gaps.append(g)
+        if len(gaps) >= 3:
+            g = np.array(gaps[-8:])
+            mid = float(np.median(g))
+            if np.median(np.abs(g - mid)) < 0.06 * mid:
+                # the average of the gaps that agree: a hit can only be seen
+                # on a frame, so single gaps are a frame long or short
+                self.period = float(np.mean(g[np.abs(g - mid) < 0.1 * mid]))
+            elif self.period and abs(mid - self.period) > 0.15 * self.period:
+                self.period = None                            # the tempo's gone: wait to be sure again
+        return True
+
+    def next_beats(self, t_from, t_to, step):
+        """Beat times (and half-beats, step=0.5) from the last hit, in (t_from, t_to]."""
+        if not self.period:
+            return []
+        p = self.period * step
+        k0 = math.floor((t_from - self.last_hit) / p) + 1
+        out = []
+        k = k0
+        while self.last_hit + k * p <= t_to:
+            out.append((k, self.last_hit + k * p))
+            k += 1
+        return out
+
+
+class _Dance:
+    def __init__(self, lanes):
+        self.t = 0.0
+        self.beat = BeatTracker()
+        self.arrows = []                                     # [lane, time it lands, strength 0..1]
+        self.avg = np.zeros(lanes)                           # each lane's recent level
+        self.busy = np.zeros(lanes)                          # how much each lane has been going on
+        self.cool = np.zeros(lanes)
+        self.flash = np.zeros(lanes)                         # a target bursting as an arrow lands
+        self.pulse = 0.0                                     # the targets' glow on each beat
+        self.last_lane = -1
+        self.planned_to = None                               # arrows are planned up to this time
+        self.low = None                                      # last moment's low-end loudness (log)
+        self.rng = np.random.default_rng(7)
+
+    def onset(self, wave, lanes):
+        """How suddenly the low end got louder since the last moment. From
+        the raw sound when there is some (below about 150 Hz, taking the
+        sample rate as 48 kHz: at 44.1 kHz that's 160 Hz, near enough),
+        else from the bars."""
+        if wave is not None and len(wave) >= 256:
+            w = np.asarray(wave, dtype=float)
+            spec = np.abs(np.fft.rfft(w * np.hanning(len(w))))
+            k = max(2, int(150 * len(w) / 48000) + 1)
+            low = math.log10(1e-6 + float(np.sum(spec[1:k] ** 2)))
+        else:
+            low = math.log10(1e-3 + float(np.max(lanes[: max(1, len(lanes) // 2)])))
+        prev, self.low = self.low, low
+        return 0.0 if prev is None else max(0.0, low - prev)
 
 
 def _lane_levels(levels, lanes):
@@ -821,7 +910,35 @@ def _lane_levels(levels, lanes):
     return np.array([g.max() if len(g) else 0.0 for g in np.array_split(lv, lanes)])
 
 
-def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False, lanes_n=4):
+DANCE_TRAVEL_S = 1.2                                         # an arrow's climb from bottom to target
+
+
+def _choose_lanes(st, lanes_n, on_beat):
+    """Which lane(s) a planned arrow goes in: mostly where the music is busy,
+    seldom the same lane twice running, a jump now and then on a beat."""
+    # every lane gets a fair share; busier parts of the music a bit more
+    w = 0.45 + st.busy[:lanes_n]
+    if st.last_lane >= 0:
+        w[st.last_lane] *= 0.25                               # the game rarely repeats a step
+    w = w / w.sum()
+    first = int(st.rng.choice(lanes_n, p=w))
+    picks = [first]
+    order = np.argsort(st.busy[:lanes_n])[::-1]
+    if on_beat and st.busy[order[1]] > 0.55 and st.rng.random() < 0.22:
+        second = int(order[0] if order[0] != first else order[1])
+        if second != first:
+            picks.append(second)
+    st.last_lane = first
+    return picks
+
+
+def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False,
+               lanes_n=4, dt=1 / 40, wave=None):
+    """Dance Dance Revolution. Once the beat is found, arrows are sent early
+    so they reach their targets on the beat, as in the game: on-beat arrows
+    in the brightest colour, half-beats in the next. Targets glow on each beat
+    and burst when an arrow lands. Until the beat is found, an arrow is sent
+    up whenever a lane's part of the music hits."""
     img = np.zeros((height, width, 3), dtype=np.uint8)
     # eight lanes need room: at least 7 LEDs each, or it's four
     lanes_n = 8 if lanes_n == 8 and width / 8 >= 7 else 4
@@ -830,46 +947,71 @@ def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True
     size = int(max(5, min(lane_w - 1, height / 4)))
     size -= (size % 2 == 0)                                  # odd, so the arrow has a middle
     top = 1
-    speed = max(1.0, height / 40)                            # rows per frame: about a second to cross
+    climb = height - top                                     # rows from the bottom to the targets
     n = field.shape[1]
     rows = len(field) - 1
     lanes = _lane_levels(levels, lanes_n)
+
     if still:
-        st = _Dance()
-        rng = np.random.default_rng(4)
-        for lane in range(lanes_n):                                # a made-up few beats for the still
+        st = _Dance(lanes_n)
+        for lane in range(lanes_n):                          # a made-up few beats for the still
             for k in range(3):
-                if rng.random() < 0.55 + 0.4 * lanes[lane]:
-                    st.arrows.append([lane, top + size + 4 + k * (height - size) / 3 + lane * 3])
+                if (lane + k) % 3 != 2:
+                    st.arrows.append([lane, 0.18 + k * 0.33 + lane * 0.07, 1.0 if k % 2 == 0 else 0.5])
         st.flash[:lanes_n] = (lanes > 0.5) * 6
+        st.pulse = 1.0
     else:
         key = (width, height, lanes_n)
         st = _dance.get(key)
         if st is None:
             _dance.clear()
-            st = _dance[key] = _Dance()
-        # a lane "hits" when it jumps well above its own recent level
-        for lane in range(lanes_n):
-            v = lanes[lane]
-            if st.cool[lane] <= 0 and v > 0.25 and v > st.avg[lane] * 1.35 + 0.06:
-                st.arrows.append([lane, float(height)])
-                st.cool[lane] = math.ceil((size + 2) / speed)    # the last arrow clears first: no overlaps
-            st.avg[lane] = 0.9 * st.avg[lane] + 0.1 * v
-        st.cool -= 1
+            st = _dance[key] = _Dance(lanes_n)
+        st.t += dt
+        t = st.t
+        hit = st.beat.update(t, st.onset(wave, lanes), dt)
+        st.busy[:lanes_n] = 0.97 * st.busy[:lanes_n] + 0.03 * np.clip(lanes * 1.4, 0, 1)
+        if st.beat.period:
+            # plan arrows for the half-beats now coming over the horizon,
+            # carrying on from where planning last stopped
+            start = t + DANCE_TRAVEL_S - dt if st.planned_to is None else st.planned_to
+            st.planned_to = t + DANCE_TRAVEL_S
+            for k, when in st.beat.next_beats(start, st.planned_to, 0.5):
+                # each new kick nudges the beat's timing a little: never plan
+                # a moment that already has an arrow on its way
+                if any(abs(a[1] - when) < 0.4 * st.beat.period for a in st.arrows):
+                    continue
+                on_beat = k % 2 == 0
+                # half-beats now and then, more often when the treble is busy
+                treble = float(st.busy[lanes_n - 1])
+                if on_beat or st.rng.random() < np.clip((treble - 0.35) * 1.5, 0, 0.5):
+                    for lane in _choose_lanes(st, lanes_n, on_beat):
+                        st.arrows.append([lane, when, 1.0 if on_beat else 0.5])
+            for k, when in st.beat.next_beats(t - dt, t, 1.0):
+                st.pulse = 1.0                               # the targets glow on the beat
+        else:
+            st.planned_to = None
+            # no beat yet: send an arrow up when a lane's part of the music hits
+            for lane in range(lanes_n):
+                v = lanes[lane]
+                if st.cool[lane] <= 0 and v > 0.25 and v > st.avg[lane] * 1.35 + 0.06:
+                    st.arrows.append([lane, t + DANCE_TRAVEL_S, 0.75])
+                    st.cool[lane] = (size + 2) / climb * DANCE_TRAVEL_S
+                st.avg[lane] = 0.9 * st.avg[lane] + 0.1 * v
+            st.cool -= dt
         for a in st.arrows:
-            a[1] -= speed
-        for a in st.arrows:
-            if a[1] <= top:
-                st.flash[a[0]] = 6
-        st.arrows = [a for a in st.arrows if a[1] > top]
+            if a[1] <= t:
+                st.flash[a[0]] = 6                           # landed: the target bursts
+        st.arrows = [a for a in st.arrows if a[1] > t]
         st.flash = np.maximum(st.flash - 1, 0)
+        st.pulse = max(0.0, st.pulse - dt * 6)
+        del hit
+    now = 0.0 if still else st.t
 
     def colour(lane, bright):
         i = min(n - 1, int((lane + 0.5) / lanes_n * n))
         return field[int(bright * rows), i]
 
     def stamp(mask, x0, y0, col):
-        h, w = mask.shape
         ys, xs = np.nonzero(mask)
         ys, xs = ys + y0, xs + x0
         ok = (ys >= 0) & (ys < height) & (xs >= 0) & (xs < width)
@@ -878,21 +1020,26 @@ def draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks=True
     for lane, direction in enumerate(names):
         x0 = int(round(lane * lane_w + (lane_w - size) / 2))
         fill, edge = _arrow(size, direction)
-        # the target: an outline, lit up while an arrow arrives
         f = st.flash[lane] / 6
-        if f > 0:
-            stamp(fill, x0, top, colour(lane, 1.0) * (0.35 + 0.65 * f))
-        stamp(edge, x0, top, np.maximum(colour(lane, 0.6) * 0.5, 40) if f == 0 else colour(lane, 1.0))
-    for lane, y in st.arrows:
+        if f > 0:                                            # an arrow just landed: a burst
+            stamp(fill, x0, top, np.minimum(255, colour(lane, 1.0) * (0.5 + 0.5 * f) + 60 * f))
+            ring = np.pad(edge, 1)
+            grown = (np.roll(ring, 1, 0) | np.roll(ring, -1, 0) | np.roll(ring, 1, 1) | np.roll(ring, -1, 1)) & ~np.pad(fill, 1)
+            stamp(grown, x0 - 1, top - 1, colour(lane, 1.0) * f)
+        glow = 0.45 + 0.35 * st.pulse
+        stamp(edge, x0, top, np.maximum(colour(lane, 0.6) * glow, 40) if f == 0 else colour(lane, 1.0))
+    for lane, when, strength in st.arrows:
         x0 = int(round(lane * lane_w + (lane_w - size) / 2))
+        y = top + (when - now) / DANCE_TRAVEL_S * climb
         fill, edge = _arrow(size, names[lane])
-        stamp(fill, x0, int(round(y)), colour(lane, 0.75))
-        stamp(edge, x0, int(round(y)), np.minimum(255, colour(lane, 1.0) * 1.1 + 25))
+        # on-beat arrows in the theme's brightest colour, half-beats in the next
+        shade = 0.95 if strength >= 1.0 else 0.55 if strength >= 0.75 else 0.35
+        stamp(fill, x0, int(round(y)), colour(lane, shade) * 0.8)
+        stamp(edge, x0, int(round(y)), np.minimum(255, colour(lane, shade) * 1.1 + 25))
     return Image.fromarray(img, "RGB")
 
-
 def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peaks=True, still=False,
-         wave=None, dance_lanes=4):
+         wave=None, dance_lanes=4, dt=1 / 40):
     """Draw one frame in the named style. Unknown names fall back to sunset.
     still=True is for a single picture (the web panel's style picker), where
     the waterfall and trails have no real history to show and make one up.
@@ -903,7 +1050,8 @@ def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peak
     if style == "waterfall":
         return draw_waterfall(levels, peaks, width, height, field, peak_colour, show_peaks, still)
     if style == "dance":
-        return draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks, still, lanes_n=dance_lanes)
+        return draw_dance(levels, peaks, width, height, field, peak_colour, show_peaks, still,
+                          lanes_n=dance_lanes, dt=dt, wave=wave)
     if style == "trails":
         return draw_trails(levels, peaks, width, height, field, peak_colour, show_peaks, still)
     if style == "scope":
