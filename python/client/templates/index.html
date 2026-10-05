@@ -73,6 +73,24 @@
   .hint { margin-top: 10px; font-size: 14px; line-height: 1.5; }
   hr { border: 0; height: 1px; margin: 18px 0; }
 
+  /* every section folds away; the arrow shows which way */
+  summary { list-style: none; cursor: pointer; }
+  summary::-webkit-details-marker { display: none; }
+  .face h2 { display: flex; align-items: center; gap: 8px; }
+  .chev { order: 2; margin-left: auto; width: 9px; height: 9px; flex: none; border: solid currentColor; border-width: 0 2px 2px 0;
+          transform: translateY(-2px) rotate(45deg); opacity: .7; transition: transform .15s ease-out; }
+  details:not([open]) .chev { transform: rotate(-45deg); }
+  details.face:not([open]) { padding-bottom: 14px; }
+  details.face:not([open]) h2 { margin-bottom: 0 !important; border-bottom: 0 !important; padding-bottom: 0 !important; }
+  .unit:has(details:not([open])) .ear-label, .unit:has(details:not([open])) .screw + .ear-label + .screw { display: none; }
+  .unit:has(details:not([open])) .ear { justify-content: center; }
+  h3.first { margin-top: 0; }
+  .other-panel { font: 600 13px/1 var(--label); letter-spacing: .1em; text-transform: uppercase; color: inherit; text-underline-offset: 3px; }
+  .brand .other-panel { margin-left: auto; padding: 8px 0; }
+  .diffs { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; }
+  .link-button { margin-top: 10px; padding: 10px 12px; min-height: 44px; border: 1px solid currentColor; border-radius: 3px;
+                 background: transparent; cursor: pointer; font: 600 13px/1.2 var(--label); letter-spacing: .08em; text-transform: uppercase; text-align: left; }
+
   /* the live picture of the panel */
   .panel { position: relative; margin: 0 auto; max-width: min(100%, calc(320px * var(--panel-w, 1) / var(--panel-h, 1))); aspect-ratio: var(--panel-aspect, 1 / 1); }
   .panel img { width: 100%; height: 100%; image-rendering: pixelated; }
@@ -255,7 +273,7 @@
   [data-ui=player] .face h2 { display: flex; align-items: center; gap: 8px; margin: 0 -10px 12px; padding: 6px 10px;
       background: var(--title); color: var(--text); font: 400 12px/1 "Silkscreen", var(--label); letter-spacing: .1em; text-transform: uppercase; }
   /* the title bar's grip lines, between the name and the window's edge */
-  [data-ui=player] .face h2::after { content: ""; flex: 1; height: 6px;
+  [data-ui=player] .face h2::after { content: ""; order: 1; flex: 1; height: 6px;
       background: repeating-linear-gradient(180deg, var(--hi) 0 1px, transparent 1px 3px); opacity: .6; }
   [data-ui=player] h3 { font: 400 11px/1.2 "Silkscreen", var(--label); letter-spacing: .08em; color: var(--muted); }
   [data-ui=player] .hint { color: var(--muted); }
@@ -378,6 +396,7 @@
 
 <header class="brand">
   <h1><img id="brand-icon" src="/icon-64.png?v={{ s.logo }}" alt="">Equalize</h1>
+  {% if dash.share.installed %}<a class="other-panel" href="{{ dash.share.url }}">Spotipi Photo →</a>{% endif %}
   <form method="post" action="/ui" data-autosave class="skin-switch" role="radiogroup" aria-label="Control panel look">
     {% for value, label in ui_skins.items() %}
     <label><input type="radio" name="ui" value="{{ value }}" {{ 'checked' if (s.ui if s.ui in ui_skins else 'rack') == value }}><span>{{ label }}</span></label>
@@ -388,8 +407,8 @@
 
 <section class="unit" aria-labelledby="now-h">
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Panel</span><span class="screw"></span></div>
-  <div class="face">
-    <h2 id="now-h">Now on the panel</h2>
+  <details class="face" data-fold="now" open>
+    <summary><h2 id="now-h">Now on the panel<span class="chev" aria-hidden="true"></span></h2></summary>
     <div class="panel" id="panel" style="--panel-aspect: {{ panel_aspect }}"><img id="preview" src="/preview.png" alt="Live snapshot of the LED panel"></div>
     <div class="readout">
       <div class="headline"><span id="alive" class="dot" aria-hidden="true"></span><span id="headline">Connecting…</span></div>
@@ -402,16 +421,17 @@
         <li>Timer <b id="st-timer">–</b></li>
         <li>Pi <b id="st-temp">–</b></li>
         <li>Up <b id="st-up">–</b></li>
+        <li class="wide">Colours <b id="st-colours">–</b></li>
       </ul>
     </div>
     <p class="problem" id="problem" role="status"></p>
-  </div>
+  </details>
 </section>
 
 <section class="unit" aria-labelledby="disp-h">
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Display</span><span class="screw"></span></div>
-  <div class="face">
-    <h2 id="disp-h">Display</h2>
+  <details class="face" data-fold="disp" open>
+    <summary><h2 id="disp-h">Display<span class="chev" aria-hidden="true"></span></h2></summary>
     <form method="post" action="/mode" data-autosave>
       <div class="seg modes" style="--n:4" role="radiogroup" aria-label="Display mode">
         {% for value, label in [("on","Auto"),("spotify","Spotify"),("always","Always"),("off","Off")] %}
@@ -429,35 +449,27 @@
         <output>{{ s.brightness }}</output>
       </div>
     </form>
-  </div>
+  </details>
 </section>
 
 <section class="unit" aria-labelledby="look-h">
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Look</span><span class="screw"></span></div>
-  <div class="face">
-    <h2 id="look-h">Look</h2>
-    <form method="post" action="/look" data-autosave>
-      <div class="styles" role="radiogroup" aria-label="Style">
-        {% for value, label in styles %}
+  <details class="face" data-fold="look" open>
+    <summary><h2 id="look-h">Look<span class="chev" aria-hidden="true"></span></h2></summary>
+    <form method="post" action="/look" data-autosave id="look">
+      {% for group, members in style_groups %}
+      <h3 id="grp-{{ loop.index }}" class="{{ 'first' if loop.first }}">{{ group }}</h3>
+      <div class="styles" role="radiogroup" aria-labelledby="grp-{{ loop.index }}">
+        {% for value, label in members %}
         <label class="style">
           <input type="radio" name="style" value="{{ value }}" {{ 'checked' if s.style == value }}>
-          <img src="/style/{{ value }}.png" alt="" data-style-preview>
+          <img src="/style/{{ value }}.png" alt="" data-style-preview loading="lazy">
           <span class="name">{{ label }}</span>
         </label>
         {% endfor %}
       </div>
+      {% endfor %}
 
-      <h3 id="col-l">Colours</h3>
-      <div class="swatches" role="radiogroup" aria-labelledby="col-l">
-        {% for value, label, css in themes %}
-        <label class="swatch">
-          <input type="radio" name="theme" value="{{ value }}" {{ 'checked' if s.theme == value }}>
-          <span class="chip" style="background: {{ css }}"></span>
-          <span class="name">{{ label }}</span>
-        </label>
-        {% endfor %}
-      </div>
-      <p class="hint"><b>Album cover</b> takes the colours from the sleeve of the song playing (needs the Spotify login).</p>
 
       <h3 id="bars-l">Bars</h3>
       <div class="seg" style="--n:{{ bar_choices|length }}" role="radiogroup" aria-labelledby="bars-l">
@@ -473,6 +485,16 @@
       </div>
       <p class="hint">For the Dance style. Eight need a panel at least 64 LEDs wide.</p>
 
+      <h3 id="song-l">Song name</h3>
+      <div class="seg" style="--n:3" role="radiogroup" aria-labelledby="song-l">
+        {% for value, label in [("off","Off"),("change","When it changes"),("always","Always")] %}
+        <label><input type="radio" name="song_text" value="{{ value }}" {{ 'checked' if s.song_text == value }}><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="hint">The song and artist along the bottom of the panel, scrolling if long.
+        <b>When it changes</b> shows it for a few seconds as each song starts; <b>Always</b>
+        moves the picture up to make room.</p>
+
       <h3 id="sens-l">Sensitivity</h3>
       <div class="slider">
         <input type="range" name="sensitivity" min="1" max="100" value="{{ s.sensitivity }}" aria-labelledby="sens-l">
@@ -485,14 +507,33 @@
         <input type="checkbox" role="switch" name="peaks" {{ 'checked' if s.peaks }}></label>
       <noscript><button>Save</button></noscript>
     </form>
-  </div>
+  </details>
+</section>
+
+<section class="unit" aria-labelledby="col-h">
+  <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Colour</span><span class="screw"></span></div>
+  <details class="face" data-fold="col">
+    <summary><h2 id="col-h">Colours<span class="chev" aria-hidden="true"></span></h2></summary>
+    <div class="swatches" role="radiogroup" aria-labelledby="col-h">
+      {% for value, label, css in themes %}
+      <label class="swatch">
+        <input type="radio" name="theme" value="{{ value }}" form="look" {{ 'checked' if s.theme == value }}>
+        <span class="chip" style="background: {{ css }}"></span>
+        <span class="name">{{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <p class="hint"><b>Album cover</b> takes the colours from the sleeve of the song playing:
+      over AirPlay from any app that sends one (Apple Music and Spotify do), or from the
+      Spotify login. With no cover it shows Warm white.</p>
+  </details>
 </section>
 
 {% if dash.share.installed %}
 <section class="unit" aria-labelledby="share-h">
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Share</span><span class="screw"></span></div>
-  <div class="face">
-    <h2 id="share-h">Sharing with Spotipi Photo</h2>
+  <details class="face" data-fold="share" open>
+    <summary><h2 id="share-h">Sharing with Spotipi Photo<span class="chev" aria-hidden="true"></span></h2></summary>
     <form method="post" action="/share" data-autosave>
       <div class="seg" style="--n:3" role="radiogroup" aria-label="Who uses the panel">
         <label><input type="radio" name="panel_share" value="auto" {{ 'checked' if s.panel_share == 'auto' }}><span>Auto</span></label>
@@ -504,15 +545,32 @@
     <p class="hint">Only one of the two can light the panel at a time. <b>Auto</b> shows the
       equaliser while music is arriving over AirPlay, and hands back to Spotipi Photo's album
       covers and photos about 10 seconds after it stops. Play to your Sonos without ticking
-      Equalize and you get album covers instead.</p>
-  </div>
+      Equalize and you get album covers instead. With the display set to <b>Off</b> above,
+      Equalize leaves the panel to Spotipi Photo.</p>
+    {% if diffs %}
+    <h3>Set differently in the two</h3>
+    <ul class="diffs">
+      {% for what, here, there in diffs %}
+      <li><b>{{ what }}</b>: {{ here }} here, {{ there }} in Spotipi Photo</li>
+      {% endfor %}
+    </ul>
+    <p class="hint">The panel changes when it's handed over: brighter, or lit during the other's
+      quiet hours.{% set ns = namespace(panel=false) %}{% for d in diffs %}{% if d[0].startswith("Panel setting") %}{% set ns.panel = true %}{% endif %}{% endfor %}{% if ns.panel %} Panel settings are set
+      once, in Spotipi Photo; one listed here comes from Equalize's own
+      <b>config/rgb_options.local.ini</b>: take it out there, unless this panel really needs it.{% endif %}</p>
+    <form method="post" action="/share/match" data-autosave>
+      <button class="link-button" type="submit">Copy Spotipi Photo's brightness, dimming, quiet hours and timer here</button>
+    </form>
+    {% endif %}
+    <p class="hint"><a class="other-panel" href="{{ dash.share.url }}">Open Spotipi Photo's control panel →</a></p>
+  </details>
 </section>
 {% endif %}
 
 <section class="unit" aria-labelledby="sound-h">
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Sound</span><span class="screw"></span></div>
-  <div class="face">
-    <h2 id="sound-h">Sound</h2>
+  <details class="face" data-fold="sound" open>
+    <summary><h2 id="sound-h">Sound<span class="chev" aria-hidden="true"></span></h2></summary>
     <form method="post" action="/source" data-autosave>
       <div class="seg" style="--n:2" role="radiogroup" aria-label="Sound source">
         <label><input type="radio" name="audio_source" value="airplay" {{ 'checked' if s.audio_source == 'airplay' }}><span>AirPlay</span></label>
@@ -523,23 +581,23 @@
     <p class="hint">On your iPhone, open the AirPlay picker (Control Centre, or the speaker
       icon in Spotify) and tick <b>your Sonos</b> and <b>Equalize</b>. The Pi makes no sound;
       it only watches. <b>Demo</b> plays a built-in pattern for testing the panel.</p>
-  </div>
+  </details>
 </section>
 
 <section class="unit" aria-labelledby="spk-h" id="spotify-unit" hidden>
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Spotify</span><span class="screw"></span></div>
-  <div class="face">
-    <h2 id="spk-h">Spotify speakers</h2>
+  <details class="face" data-fold="spk" open>
+    <summary><h2 id="spk-h">Spotify speakers<span class="chev" aria-hidden="true"></span></h2></summary>
     <form method="post" action="/spotify/speakers" data-autosave id="speakers"></form>
     <p class="hint">In the Spotify app, choose <b>Equalize</b> as the device. The music plays on the
       speakers ticked here, and the panel draws it in step. AirPlay still works as before.</p>
-  </div>
+  </details>
 </section>
 
 <section class="unit" aria-labelledby="sched-h">
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Schedule</span><span class="screw"></span></div>
-  <div class="face">
-    <h2 id="sched-h">Schedule</h2>
+  <details class="face" data-fold="sched">
+    <summary><h2 id="sched-h">Schedule<span class="chev" aria-hidden="true"></span></h2></summary>
 
     <form method="post" action="/timer" data-autosave class="muted-when-off">
       <label class="switch"><span>Screen timer</span>
@@ -570,13 +628,13 @@
       <p class="hint">Sunrise and sunset are worked out on the Pi from these coordinates.</p>
       <noscript><button>Save</button></noscript>
     </form>
-  </div>
+  </details>
 </section>
 
 <section class="unit" aria-labelledby="page-h">
   <div class="ear" aria-hidden="true"><span class="screw"></span><span class="ear-label">Page</span><span class="screw"></span></div>
-  <div class="face">
-    <h2 id="page-h">Logo</h2>
+  <details class="face" data-fold="page" open>
+    <summary><h2 id="page-h">Logo<span class="chev" aria-hidden="true"></span></h2></summary>
     <form method="post" action="/logo" data-autosave>
       <div class="logos" role="radiogroup" aria-label="Logo">
         {% for value, label in logos.items() %}
@@ -590,7 +648,7 @@
       <noscript><button>Save</button></noscript>
     </form>
     <p class="hint">The icon for this page, in the browser tab and on your phone's home screen.</p>
-  </div>
+  </details>
 </section>
 
 </main>
@@ -598,6 +656,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
+const THEME_NAMES = {{ theme_names|tojson }};
 const MODE_HINTS = {
   on: "<b>Auto</b>: bars whenever music is arriving over AirPlay, from any app; dark otherwise.",
   spotify: "<b>Spotify</b>: bars only while Spotify says your account is playing.",
@@ -617,6 +676,7 @@ async function save(form) {
       headers: { "X-Requested-With": "XMLHttpRequest" } });
     if (!r.ok) throw 0;
     toast("Saved");
+    if (form.action.endsWith("/share/match")) { location.reload(); return; }   // every copied value on show
     if (form.action.endsWith("/look"))
       document.querySelectorAll("[data-style-preview]").forEach(i => i.src = i.src.split("?")[0] + "?" + Date.now());
     refresh();
@@ -626,9 +686,14 @@ function paintRange(r) {
   r.style.setProperty("--fill", ((r.value - r.min) / (r.max - r.min) * 100) + "%");
   const out = r.parentElement.querySelector("output"); if (out) out.textContent = r.value;
 }
+// changes save themselves, including controls that sit outside their form
+// (the colours, which belong to the Look form)
+document.addEventListener("change", e => {
+  const form = e.target.form;
+  if (form && form.hasAttribute("data-autosave")) save(form);
+});
 document.querySelectorAll("form[data-autosave]").forEach(form => {
   let t;
-  form.addEventListener("change", () => { clearTimeout(t); save(form); });
   form.addEventListener("submit", e => { e.preventDefault(); save(form); });
   form.querySelectorAll("input[type=range]").forEach(r => {
     paintRange(r);
@@ -659,6 +724,13 @@ async function loadSpeakers() {
   } catch (e) { /* not installed: the section stays hidden */ }
 }
 loadSpeakers();
+
+// which sections are folded is remembered on this phone or computer only
+document.querySelectorAll("details[data-fold]").forEach(d => {
+  const key = "fold-" + d.dataset.fold;
+  try { const v = localStorage.getItem(key); if (v) d.open = v === "open"; } catch (e) {}
+  d.addEventListener("toggle", () => { try { localStorage.setItem(key, d.open ? "open" : "shut"); } catch (e) {} });
+});
 
 // a new logo shows at once in the header and the browser tab
 document.querySelectorAll("input[name=logo]").forEach(i => i.addEventListener("change", () => {
@@ -704,6 +776,8 @@ async function refresh() {
     $("st-timer").textContent = d.timer_remaining_s == null ? "off" : dur(d.timer_remaining_s);
     $("st-temp").textContent = d.pi_temp_c == null ? "– °C" : `${d.pi_temp_c} °C`;
     $("st-up").textContent = dur(d.uptime_s);
+    $("st-colours").textContent = !st.colours ? "–" : st.colours === "cover" ? "from the cover"
+      : d.state.theme === "album" ? "no cover yet" : (THEME_NAMES[st.colours] || st.colours);
     if (st.panel) {
       const [w, h] = st.panel.split("x").map(Number), p = $("panel").style;
       p.setProperty("--panel-w", w); p.setProperty("--panel-h", h); p.setProperty("--panel-aspect", `${w} / ${h}`);

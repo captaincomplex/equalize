@@ -284,3 +284,9 @@ def test_arrows_match_in_every_direction():
     for size in (7, 9, 11, 15, 21):
         lit = [int(_arrow(size, d)[0].sum()) for d in DANCE_LANES[8]]
         assert max(lit) <= min(lit) * 1.2, (size, lit)       # same weight whichever way it points
+
+
+def test_every_style_is_in_exactly_one_group():
+    from styles import STYLE_GROUPS
+    grouped = [st for _, members in STYLE_GROUPS for st in members]
+    assert sorted(grouped) == sorted(STYLES)

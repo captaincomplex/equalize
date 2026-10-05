@@ -25,6 +25,7 @@ from audio_source import DemoSource  # noqa: E402
 from render import THEMES, auto_bars, colour_field, peak_colour_for  # noqa: E402
 from styles import STYLES, draw  # noqa: E402
 from spectrum import Analyzer, BarSmoother  # noqa: E402
+from song_info import STRIP_H, Banner, text_colour  # noqa: E402
 
 FFT = 2048
 
@@ -68,6 +69,8 @@ def main():
     ap.add_argument("--wav")
     ap.add_argument("--scale", type=int, default=6)
     ap.add_argument("--dance-lanes", type=int, default=4, choices=(4, 8))
+    ap.add_argument("--song", help='show a song name along the bottom: "Title|Artist"')
+    ap.add_argument("--song-mode", default="always", choices=("always", "change"))
     ap.add_argument("--out", default="preview.gif")
     ap.add_argument("--still", help="also save one frame (at this second) as a PNG")
     a = ap.parse_args()
@@ -90,12 +93,25 @@ def main():
     analyzer, smoother = Analyzer(sr, n, FFT), BarSmoother(n)
     dt = 1.0 / a.fps
     frames = []
+    banner = Banner()
+    if a.song:
+        title, _, artist = a.song.partition("|")
+        banner.update((title, artist), 1.0)
     for i in range(int(a.seconds * a.fps)):
         t = 1.0 + i * dt
         samples = read(t)
         levels, peaks = smoother.update(analyzer.process(samples, 50, dt), dt)
-        frame = draw(a.style, levels, peaks, width, height, field,
+        strip = bool(a.song) and banner.showing(a.song_mode, width, t)
+        pic_h = height - STRIP_H if strip and a.song_mode == "always" else height
+        frame = draw(a.style, levels, peaks, width, pic_h,
+                     field if pic_h == height else field[np.linspace(0, height - 1, pic_h).astype(int)],
                      peak_colour=peak_colour_for(a.theme), wave=samples, dance_lanes=a.dance_lanes, dt=dt)
+        if pic_h != height:
+            full = Image.new("RGB", (width, height))
+            full.paste(frame, (0, 0))
+            frame = full
+        if strip:
+            frame = banner.draw(frame, text_colour(field), t)
         frames.append(as_leds(frame, a.scale))
         if a.still and abs(t - float(a.still)) < dt / 2:
             frames[-1].save(os.path.splitext(a.out)[0] + ".png")

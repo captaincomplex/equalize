@@ -36,6 +36,18 @@ print(mode if mode in ("auto", "equalize", "spotipi") else "auto")
 PY
 }
 
+# Equalize's own display mode. "Off" means don't take the panel at all:
+# taking it only to show nothing would blank Spotipi Photo's pictures.
+equalize_off() {
+  python3 - "$STATE" <<'PY' 2>/dev/null
+import json, sys
+try:
+    sys.exit(0 if json.load(open(sys.argv[1])).get("mode") == "off" else 1)
+except Exception:
+    sys.exit(1)
+PY
+}
+
 have_spotipi() { [ -e "$SPOTIPI_UNIT" ]; }
 
 # Stop the other one first, so the two never drive the panel together.
@@ -57,7 +69,7 @@ fi
 
 mode="$(share_mode)"
 case "$cmd" in
-  airplay-start) [ "$mode" = auto ] && show_equalize ;;
+  airplay-start) [ "$mode" = auto ] && ! equalize_off && show_equalize ;;
   airplay-stop)  [ "$mode" = auto ] && show_spotipi ;;
   boot)          if [ "$mode" = equalize ]; then show_equalize; else show_spotipi; fi ;;
   use)

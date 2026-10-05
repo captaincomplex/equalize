@@ -116,12 +116,14 @@ else
 fi
 systemctl enable --now nqptp >/dev/null 2>&1 || problem "nqptp service would not start"
 
-if shairport-sync -V 2>/dev/null | grep -q "^${SHAIRPORT_TAG}"; then
+# "-metadata" in the version: built to pass on the song's name (added 5 Oct
+# 2026), so an older build without it is rebuilt once.
+if shairport-sync -V 2>/dev/null | grep "^${SHAIRPORT_TAG}" | grep -q -- "-metadata"; then
   note "shairport-sync ${SHAIRPORT_TAG} already installed."
 else
   build_tag shairport-sync https://github.com/mikebrady/shairport-sync.git "$SHAIRPORT_TAG" \
     --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl \
-    --with-systemd-startup --with-airplay-2
+    --with-systemd-startup --with-airplay-2 --with-metadata
 fi
 
 if [ -f /etc/shairport-sync.conf ] && ! grep -q "Equalize's settings" /etc/shairport-sync.conf; then

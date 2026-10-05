@@ -23,8 +23,13 @@ def pi(tmp_path):
     unit.write_text("[Unit]\n")
     state = tmp_path / "state.json"
 
-    def run(*args, mode=None, spotipi=True):
-        state.write_text(json.dumps({"panel_share": mode}) if mode else "{}")
+    def run(*args, mode=None, spotipi=True, display=None):
+        st = {}
+        if mode:
+            st["panel_share"] = mode
+        if display:
+            st["mode"] = display
+        state.write_text(json.dumps(st))
         if log.exists():
             log.unlink()
         env = dict(os.environ, SYSTEMCTL=str(fake), EQUALIZE_STATE=str(state),
@@ -67,3 +72,9 @@ def test_without_spotipi_equalize_always_has_the_panel(pi):
 
 def test_use_auto_leaves_the_panel_alone(pi):
     assert pi("use", "auto") == []
+
+
+def test_equalize_set_to_off_leaves_the_panel_with_spotipi(pi):
+    # taking the panel only to show nothing would blank the photos
+    assert pi("airplay-start", display="off") == []
+    assert pi("airplay-start", display="on") == ["stop spotipi.service", "start equalize.service"]

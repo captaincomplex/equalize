@@ -86,3 +86,92 @@ def test_spotify_speakers_when_owntone_is_absent(monkeypatch, tmp_path):
     monkeypatch.setattr(webapp, "_owntone", down)
     assert c.get("/spotify/speakers").get_json() == {"ok": False, "speakers": []}
     assert c.post("/spotify/speakers", data={"speaker": "1"}).status_code == 502
+
+
+def test_old_sensitivity_setting_is_translated_to_the_new_scale(tmp_path, monkeypatch):
+    import json
+    import state
+    p = tmp_path / "state.json"
+    p.write_text(json.dumps({"sensitivity": 1}))
+    monkeypatch.setattr(state, "STATE_PATH", str(p))
+    s = state.read_state()
+    assert s["sensitivity"] == 50 and s["sensitivity_scale"] == 2   # the same 20 dB as before
+    p.write_text(json.dumps({"sensitivity": 30, "sensitivity_scale": 2}))
+    assert state.read_state()["sensitivity"] == 30                  # already new: left alone
+
+
+def test_album_cover_previews_use_the_cover(monkeypatch, tmp_path):
+    import numpy as np
+    from io import BytesIO
+    from PIL import Image
+    c = client(monkeypatch, tmp_path)
+    import app as webapp
+    cover = tmp_path / "cover.png"
+    monkeypatch.setattr(webapp, "COVER_PATH", str(cover))
+    plain = np.asarray(Image.open(BytesIO(c.get("/style/bars.png").data)).convert("RGB"))
+    Image.new("RGB", (64, 64), (230, 20, 20)).save(cover)        # a red sleeve
+    red = np.asarray(Image.open(BytesIO(c.get("/style/bars.png").data)).convert("RGB"))
+    lit = red.sum(axis=2) > 60
+    assert lit.any() and np.median(red[lit][:, 0]) > 2 * np.median(red[lit][:, 2])   # red bars
+    assert not (plain == red).all()                                    # without it: Warm white
+
+
+def _spotipi(tmp_path, state, local_ini=""):
+    root = tmp_path / "spotipi-photo"
+    (root / "config").mkdir(parents=True)
+    (root / "python").mkdir()
+    (root / "config" / "state.json").write_text(__import__("json").dumps(state))
+    (root / "config" / "rgb_options.ini").write_text("[DEFAULT]\nrows = 64\ncolumns = 64\ngpio_slowdown = 2\n")
+    if local_ini:
+        (root / "config" / "rgb_options.local.ini").write_text("[DEFAULT]\n" + local_ini)
+    unit = tmp_path / "spotipi.service"
+    unit.write_text("[Service]\nExecStart=/usr/bin/python3 %s/python/displaySpotipi.py me /tok\n" % root)
+    return unit
+
+
+def test_settings_that_differ_from_spotipi_photo_are_listed_and_can_be_copied(monkeypatch, tmp_path):
+    c = client(monkeypatch, tmp_path)
+    import app as webapp
+    unit = _spotipi(tmp_path, {"brightness": 35, "schedule_enabled": True, "schedule_off": "22:30"},
+                    "gpio_slowdown = 4\n")
+    monkeypatch.setattr(webapp, "SPOTIPI_UNIT", str(unit))
+    monkeypatch.setattr(webapp, "_active", lambda unit: False)
+    page = c.get("/").get_data(as_text=True)
+    assert "Brightness</b>: 60 here, 35 in Spotipi Photo" in page
+    assert "Quiet hours</b>: off here, on in Spotipi Photo" in page
+    assert "Panel setting gpio_slowdown" not in page        # Spotipi Photo's panel settings are used
+    assert "Open Spotipi Photo&#39;s control panel" in page or "Open Spotipi Photo's control panel" in page
+    c.post("/share/match")
+    s = state.read_state()
+    assert s["brightness"] == 35 and s["schedule_enabled"] is True and s["schedule_off"] == "22:30"
+    assert "Set differently in the two" not in c.get("/").get_data(as_text=True)
+
+
+def test_equalize_uses_spotipi_photos_panel_settings(tmp_path):
+    from display_logic import panel_config_paths, read_panel_config, spotipi_root
+    unit = _spotipi(tmp_path, {}, "gpio_slowdown = 4\nhardware_mapping = adafruit-hat-pwm\n")
+    eq = tmp_path / "eq"
+    eq.mkdir()
+    (eq / "rgb_options.ini").write_text("[DEFAULT]\nrows = 64\ncolumns = 64\ngpio_slowdown = 2\n")
+    root = spotipi_root(str(unit))
+    assert root and root.endswith("spotipi-photo")
+    d = read_panel_config(panel_config_paths(str(eq), root))
+    assert d["gpio_slowdown"] == "4" and d["hardware_mapping"] == "adafruit-hat-pwm"
+    (eq / "rgb_options.local.ini").write_text("[DEFAULT]\ngpio_slowdown = 3\n")   # Equalize's own wins
+    assert read_panel_config(panel_config_paths(str(eq), root))["gpio_slowdown"] == "3"
+    assert spotipi_root(str(tmp_path / "absent")) is None
+
+
+def test_a_panel_setting_that_differs_is_explained(monkeypatch, tmp_path):
+    c = client(monkeypatch, tmp_path)
+    import app as webapp
+    unit = _spotipi(tmp_path, {}, "gpio_slowdown = 4\n")
+    monkeypatch.setattr(webapp, "SPOTIPI_UNIT", str(unit))
+    monkeypatch.setattr(webapp, "_active", lambda unit: False)
+    monkeypatch.setattr(webapp, "CONFIG_INI", str(tmp_path / "eq" / "rgb_options.ini"))
+    (tmp_path / "eq").mkdir()
+    (tmp_path / "eq" / "rgb_options.ini").write_text("[DEFAULT]\nrows = 64\ncolumns = 64\n")
+    (tmp_path / "eq" / "rgb_options.local.ini").write_text("[DEFAULT]\ngpio_slowdown = 2\n")
+    page = c.get("/").get_data(as_text=True)
+    assert "Panel setting gpio_slowdown</b>: 2 here, 4 in Spotipi Photo" in page
+    assert "take it out there" in page

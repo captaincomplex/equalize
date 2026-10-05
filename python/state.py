@@ -23,6 +23,7 @@ RUNTIME_DIR = "/dev/shm/equalize" if os.path.isdir("/dev/shm") else \
     os.path.abspath(os.path.join(DIR, "..", "config"))
 STATUS_PATH = os.path.join(RUNTIME_DIR, "status.json")
 PREVIEW_PATH = os.path.join(RUNTIME_DIR, "current.png")
+COVER_PATH = os.path.join(RUNTIME_DIR, "cover.png")      # the sleeve the colours come from
 
 DEFAULT_STATE = {
     # "on"      -- bars while music is arriving over AirPlay, from any app
@@ -34,11 +35,16 @@ DEFAULT_STATE = {
 
     # Look
     "style": "ledring",             # see styles.STYLES
-    "theme": "mono",                # see render.THEMES ("mono" is Warm white)
+    "theme": "album",               # see render.THEMES; "album" = the cover's colours
+                                    # (Warm white, "mono", when there's no cover)
     "bars": 0,                      # 0 = automatic for the panel width
     "peaks": True,                  # the little falling caps above the bars
     "sensitivity": 50,              # 1-100; higher = taller, busier bars
+    "sensitivity_scale": 2,         # 2 = the 8-33 dB scale (see spectrum.sensitivity_db)
     "dance_lanes": 4,               # the Dance style: 4 arrows, or 8 with the diagonals
+    # The song's name along the bottom of the panel: "off", "change" (a few
+    # seconds when the song changes) or "always" (the picture moves up).
+    "song_text": "off",
 
     # How the control panel itself looks: "rack" (studio rack units) or
     # "player" (an early-2000s media player). The LED panel is unaffected.
@@ -93,9 +99,20 @@ def read_state():
             data = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError, PermissionError, OSError):
         data = {}
+    data = _upgrade(data or {})
     merged = dict(DEFAULT_STATE)
-    merged.update(data or {})
+    merged.update(data)
     return merged
+
+
+def _upgrade(data):
+    """Settings saved by an older Equalize, translated so the panel looks the same."""
+    if "sensitivity" in data and data.get("sensitivity_scale") != 2:
+        # old scale: 20 + 0.5*s dB; new: 8 + 0.25*s dB
+        old_db = 20.0 + 0.5 * max(1, min(100, int(data["sensitivity"])))
+        data["sensitivity"] = int(max(1, min(100, round((old_db - 8.0) / 0.25))))
+        data["sensitivity_scale"] = 2
+    return data
 
 
 def write_state(state):

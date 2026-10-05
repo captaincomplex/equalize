@@ -11,29 +11,32 @@ if Spotipi Photo's panel already has 80 on the same Pi).
 
 import io
 import os
+import socket
 import subprocess
 import sys
 import time
+
+from PIL import Image
 
 sys.dont_write_bytecode = True      # runs as root; keep __pycache__ out
 
 from flask import Flask, Response, jsonify, redirect, render_template, request, send_file, url_for
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from display_logic import panel_config_paths, panel_geometry, read_panel_config  # noqa: E402
-from render import THEMES, auto_bars, colour_field, peak_colour_for, theme_css  # noqa: E402
-from styles import STYLE_LABELS, STYLES, draw, sample_levels  # noqa: E402
-from state import PREVIEW_PATH, read_state, read_status, reset_timer, write_state  # noqa: E402
+from display_logic import panel_config_paths, panel_geometry, read_panel_config, spotipi_root  # noqa: E402
+from render import THEMES, album_palette, auto_bars, colour_field, peak_colour_for, theme_css  # noqa: E402
+from styles import STYLE_GROUPS, STYLE_LABELS, STYLES, draw, sample_levels  # noqa: E402
+from state import COVER_PATH, PREVIEW_PATH, read_state, read_status, reset_timer, write_state  # noqa: E402
 
 app = Flask(__name__)
 
 VALID_MODES = {"on", "spotify", "always", "off"}
 VALID_SOURCES = {"airplay", "demo"}
-BAR_CHOICES = [0, 8, 16, 32, 64]
+BAR_CHOICES = [0, 4, 8, 16, 32, 64]
 THEME_LABELS = {"vapor": "Vapor", "classic": "Classic", "rainbow": "Rainbow",
                 "ice": "Ice", "sunset": "Sunset", "fire": "Fire", "ocean": "Ocean",
                 "forest": "Forest", "aurora": "Aurora", "amber": "Amber",
-                "mono": "Warm white", "pastel": "Pastel", "thermal": "Thermal", "teal": "Teal",
+                "mono": "Warm white", "pastel": "Pastel", "thermal": "Thermal", "teal": "Teal", "phosphor": "Phosphor",
                 "album": "Album cover"}
 VALID_SHARE = {"auto", "equalize", "spotipi"}
 CONFIG_INI = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "rgb_options.ini"))
@@ -44,7 +47,8 @@ SPOTIPI_UNIT = os.environ.get("SPOTIPI_UNIT_FILE", "/etc/systemd/system/spotipi.
 def panel_size():
     """(width, height) of the LED panel, from rgb_options.ini."""
     try:
-        w, h, _ = panel_geometry(read_panel_config(panel_config_paths(os.path.dirname(CONFIG_INI))))
+        w, h, _ = panel_geometry(read_panel_config(
+            panel_config_paths(os.path.dirname(CONFIG_INI), spotipi_root(SPOTIPI_UNIT))))
         return w, h
     except Exception:
         return 64, 64
@@ -62,7 +66,62 @@ def share_info():
     if not os.path.exists(SPOTIPI_UNIT):
         return {"installed": False}
     owner = "equalize" if _active("equalize") else "spotipi" if _active("spotipi") else None
-    return {"installed": True, "owner": owner, "mode": read_state().get("panel_share", "auto")}
+    return {"installed": True, "owner": owner, "mode": read_state().get("panel_share", "auto"),
+            "url": "http://%s.local/" % socket.gethostname()}
+
+
+# Settings both programs have, each its own copy. Different values mean the
+# panel changes when it's handed over: brighter, or lit in the other's quiet hours.
+SHARED_SETTINGS = [
+    ("brightness", "Brightness"),
+    ("dimmer_enabled", "Dim after sunset"),
+    ("dim_brightness", "Night brightness"),
+    ("latitude", "Latitude"),
+    ("longitude", "Longitude"),
+    ("schedule_enabled", "Quiet hours"),
+    ("schedule_off", "Quiet hours from"),
+    ("schedule_on", "Quiet hours until"),
+    ("timer_enabled", "Screen timer"),
+    ("timer_minutes", "Screen timer minutes"),
+]
+# Panel settings that must match, or the panel flickers or draws wrongly
+# when the other program takes over.
+PANEL_KEYS = ["rows", "columns", "chain_length", "parallel", "hardware_mapping",
+              "gpio_slowdown", "rotate", "pwm_bits", "pwm_lsb_nanoseconds", "led_rgb_sequence",
+              "scan_mode", "row_address_type", "multiplexing", "refresh_rate"]
+
+
+def _spotipi_state(root):
+    import json as _json
+    try:
+        with open(os.path.join(root, "config", "state.json")) as f:
+            return _json.load(f) or {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _shown(v):
+    return "on" if v is True else "off" if v is False else str(v)
+
+
+def differences():
+    """Where Equalize's settings and Spotipi Photo's differ: [(what, here, there)]."""
+    root = spotipi_root(SPOTIPI_UNIT)
+    if not root:
+        return []
+    here, there = read_state(), _spotipi_state(root)
+    out = []
+    for key, label in SHARED_SETTINGS:
+        if key in there and here.get(key) != there[key]:
+            out.append((label, _shown(here.get(key)), _shown(there[key])))
+    mine = read_panel_config(panel_config_paths(os.path.dirname(CONFIG_INI), root))
+    theirs = read_panel_config([os.path.join(root, "config", "rgb_options.ini"),
+                                os.path.join(root, "config", "rgb_options.local.ini")])
+    for key in PANEL_KEYS:
+        a, b = mine.get(key), theirs.get(key)
+        if a is not None and b is not None and a.strip() != b.strip():   # not set = the driver's default
+            out.append(("Panel setting %s" % key, a, b))
+    return out
 
 
 def _int(name, default, lo, hi):
@@ -112,11 +171,13 @@ def done():
 
 @app.route("/")
 def index():
-    themes = [(t, THEME_LABELS.get(t, t.title()), theme_css(t)) for t in THEMES]
-    styles = [(st, STYLE_LABELS[st]) for st in STYLES]
+    # Album cover first: the default
+    themes = [(t, THEME_LABELS.get(t, t.title()), theme_css(t))
+              for t in sorted(THEMES, key=lambda t: t != "album")]
+    style_groups = [(g, [(st, STYLE_LABELS[st]) for st in members]) for g, members in STYLE_GROUPS]
     w, h = panel_size()
     return render_template("index.html", s=read_state(), dash=dashboard(),
-                           themes=themes, styles=styles, bar_choices=BAR_CHOICES,
+                           themes=themes, theme_names=THEME_LABELS, diffs=differences(), style_groups=style_groups, bar_choices=BAR_CHOICES,
                            panel_aspect="%d / %d" % (w, h), ui_skins=UI_SKINS, logos=LOGOS)
 
 
@@ -128,10 +189,20 @@ def style_preview(name):
     state = read_state()
     w, h = panel_size()
     n = int(state.get("bars") or 0) or auto_bars(w)
-    theme = state.get("theme", "mono")
-    theme = "rainbow" if theme == "album" else theme if theme in THEMES else "mono"
+    theme = state.get("theme", "album")
+    theme = theme if theme in THEMES else "album"
+    palette = None
+    if theme == "album":
+        # the cover of the last song played, as the display program saved it
+        try:
+            with Image.open(COVER_PATH) as art:
+                palette = album_palette(art.convert("RGB"), n)
+        except (OSError, ValueError):
+            palette = None
+        if palette is None:
+            theme = "mono"                     # what the panel shows with no cover
     levels, peaks = sample_levels(n)
-    img = draw(name, levels, peaks, w, h, colour_field(theme, n, h), peak_colour_for(theme),
+    img = draw(name, levels, peaks, w, h, colour_field(theme, n, h, palette), peak_colour_for(theme),
                still=True, dance_lanes=int(state.get("dance_lanes", 4)))
     buf = io.BytesIO()
     img.save(buf, "PNG")
@@ -168,18 +239,35 @@ def set_brightness():
     return done()
 
 
+@app.route("/share/match", methods=["POST"])
+def match_spotipi():
+    """Copy Spotipi Photo's brightness, night dimming, quiet hours and timer
+    here, so the panel behaves the same whichever program has it."""
+    root = spotipi_root(SPOTIPI_UNIT)
+    if root:
+        there = _spotipi_state(root)
+        state = read_state()
+        for key, _ in SHARED_SETTINGS + [("timer_started", "")]:
+            if key in there:
+                state[key] = there[key]
+        write_state(state)
+    return done()
+
+
 @app.route("/look", methods=["POST"])
 def set_look():
     state = read_state()
     style = request.form.get("style", "ledring")
     state["style"] = style if style in STYLES else "ledring"
-    theme = request.form.get("theme", "mono")
-    state["theme"] = theme if theme in THEMES else "mono"
+    theme = request.form.get("theme", "album")
+    state["theme"] = theme if theme in THEMES else "album"
     bars = _int("bars", 0, 0, 128)
     state["bars"] = bars if bars in BAR_CHOICES else 0
     state["peaks"] = request.form.get("peaks") == "on"
     state["sensitivity"] = _int("sensitivity", 50, 1, 100)
     state["dance_lanes"] = 8 if request.form.get("dance_lanes") == "8" else 4
+    song = request.form.get("song_text", "off")
+    state["song_text"] = song if song in ("off", "change", "always") else "off"
     write_state(state)
     return done()
 

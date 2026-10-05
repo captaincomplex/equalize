@@ -183,6 +183,31 @@ def read_panel_config(paths):
     return cfg["DEFAULT"]
 
 
-def panel_config_paths(config_dir):
+def panel_config_paths(config_dir, spotipi=None):
+    """Where the panel settings come from, later files winning: Equalize's
+    defaults, then Spotipi Photo's own panel settings when it is on this Pi
+    too (one panel, so one set of settings: set them once, in Spotipi Photo,
+    with tools/panel_setting.py), then Equalize's local file, for anything
+    that really must differ."""
     import os
-    return [os.path.join(config_dir, "rgb_options.ini"), os.path.join(config_dir, "rgb_options.local.ini")]
+    paths = [os.path.join(config_dir, "rgb_options.ini")]
+    if spotipi:
+        paths.append(os.path.join(spotipi, "config", "rgb_options.local.ini"))
+    paths.append(os.path.join(config_dir, "rgb_options.local.ini"))
+    return paths
+
+
+SPOTIPI_UNIT = "/etc/systemd/system/spotipi.service"
+
+
+def spotipi_root(unit=SPOTIPI_UNIT):
+    """Spotipi Photo's folder on this Pi, read from its service's start
+    command (.../python/displaySpotipi.py), or None if it isn't installed."""
+    import os
+    import re
+    try:
+        with open(unit) as f:
+            m = re.search(r"^ExecStart=.*?(\S+)/python/displaySpotipi\.py", f.read(), re.M)
+    except OSError:
+        return None
+    return m.group(1) if m and os.path.isdir(m.group(1)) else None
