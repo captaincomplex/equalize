@@ -87,19 +87,23 @@ Spotify app --("Equalize")--> librespot (Raspotify) --pipe--> OwnTone
 Nineteen ways to draw the music, plus plain bars. The control panel groups
 them: *Rings*, *Bars and meters*, *Waves*, and *Effects and games*. The first
 three here match the logos (you choose the logo at the bottom of the control panel):
-- **LED ring** (default): rings of LED dots round the middle, the inner ring
-  always faintly lit, each spoke lighting outward further where it's louder.
+- **LED ring** (default): rings of LED dots round the middle, each spoke
+  lighting outward further where it's louder.
 - **Logo**: the LED ring logo itself, moving. The same 24 spokes of 5
   rings in the logo's places (the small version, 12 spokes of 3, on panels
   under 48 LEDs), and round dots growing ring by ring in exactly the logo's
   proportions; the LEDs at each dot's edge glow at part strength, which is
   what makes a few LEDs read as a circle. Each spoke lights outward the
-  louder it is; silence lights none.
+  louder it is. No dots at all until their part of the music is heard.
 - **Logo trails**: Logo with Trails' echo. The dots the music lights grow
   and fade behind each new picture, so every beat flies outward from the
-  ring; the faint unlit dots stay crisp in place.
+  ring.
 - **Ring**: rays round an empty circle, longer where it's louder.
-- **LED grid**: big round "LEDs" in columns, the unlit ones faintly showing.
+- **LED grid**: big round "LEDs" in columns.
+
+None of the LED styles (LED ring, Logo, Logo trails, Ring, LED grid, Meter)
+shows anything for a part of the music until it is heard: no faint unlit dots
+or rings, so a quiet room means a dark panel.
 
 - **Dance** (best in Rainbow): Dance Dance Revolution. Four lanes, ← bass,
   ↓ low-mid, ↑ high-mid, → treble, or eight with the diagonals (← ↖ ↙ ↓ ↑ ↘ ↗ →,
@@ -118,8 +122,8 @@ music players of the early 2000s:
 - **Sunset**: bars standing on a horizon, the sun's stripes cut through
   them, a neon grid floor below.
 - **Disc**: the spectrum as a ring of rays around a small striped sun.
-- **Meter**: a hi-fi LED meter, stacked segments with the unlit ones faintly
-  glowing and a lit segment marking each peak.
+- **Meter**: a hi-fi LED meter, stacked segments with a lit segment marking
+  each peak.
 - **Equals**: bars rising from a centre line with their reflection below.
 - **Mirror**: bars growing up and down from the middle of the panel at once.
 - **Wave**: one smooth line through the tops of the bars, softly filled below,

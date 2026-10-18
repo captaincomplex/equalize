@@ -4,8 +4,8 @@ styles.py -- the four ways Equalize can draw the music, one per logo.
     sunset  bars standing on a horizon, the sun's slits cut through them,
             a neon grid floor below (logo 1, the default)
     disc    the spectrum as a ring of rays around a small striped sun (logo 3)
-    meter   a hi-fi LED meter: stacked segments, unlit ones faintly glowing,
-            a lit segment marking each peak (logo 4)
+    meter   a hi-fi LED meter: stacked segments, a lit segment marking each
+            peak (logo 4)
     equals  bars rising from a centre line with their reflection below,
             like an "=" sign (logo 5)
     mirror  bars growing up and down from the middle of the panel at once
@@ -24,8 +24,8 @@ styles.py -- the four ways Equalize can draw the music, one per logo.
     ledring rings of LED dots around the middle, lit outward further where
             the music is louder (the LED ring logo; the default)
     ring    rays around an empty circle, longer where louder (the Ring logo)
-    dots    big round "LEDs" in columns, the unlit ones faintly showing (the
-            LED grid logo)
+    logo    the LED ring logo itself, moving; logotrails: with Trails' echo
+    dots    big round "LEDs" in columns (the LED grid logo)
     dance   Dance Dance Revolution: four lanes (or eight, with diagonals),
             lowest notes on the left, send rounded arrows scrolling up to a
             row of targets on each beat
@@ -212,7 +212,7 @@ def draw_meter(levels, peaks, width, height, field, peak_colour, show_peaks=True
             elif show_peaks and s == pk and pk >= lit:
                 c = _peak_rgb(field, i, peak_colour)
             else:
-                c = col[s] * 0.10                                # unlit: a faint glow
+                continue                                         # unlit: nothing, until it's heard
             img[y0:y1, x0:x1] = np.asarray(c).astype(np.uint8)
     return Image.fromarray(img, "RGB")
 
@@ -643,8 +643,8 @@ def _led(img, x, y, size, colour):
 def draw_ledring(levels, peaks, width, height, field, peak_colour, show_peaks=True):
     """Rings of LED dots round the middle, the dots growing as they go out
     (1, then 2, then 3 LEDs across on a 64-high panel), like the LED ring
-    logo. The inner ring is always faintly lit; each spoke lights outward,
-    further where the music is louder. Unlit dots glow very faintly."""
+    logo. Each spoke lights outward, further where the music is louder;
+    nothing shows until its part of the music is heard."""
     img = np.zeros((height, width, 3), dtype=np.uint8)
     cx, cy = (width - 1) / 2, (height - 1) / 2
     size = min(width, height)
@@ -669,10 +669,8 @@ def draw_ledring(levels, peaks, width, height, field, peak_colour, show_peaks=Tr
                 c = col
             elif show_peaks and j == top and j > 0:
                 c = _peak_rgb(field, i, peak_colour)
-            elif j == 0:
-                c = col * 0.45                                   # the ring itself, always there
             else:
-                c = col * 0.07
+                continue                                         # unlit: nothing, until it's heard
             r = radii[j]
             _led(img, cx + r * math.cos(a), cy + r * math.sin(a), sizes[j], np.asarray(c).astype(np.uint8))
     return Image.fromarray(img, "RGB")
@@ -742,6 +740,8 @@ def _logo_layers(levels, width, height, field):
         col = np.asarray(field[int(rows * 0.85), min(field.shape[1] - 1, i)], dtype=float)
         for j in range(rings):
             on = float(np.clip(lit - j, 0, 1))
+            if on <= 0:
+                break                                          # nothing further out on this spoke
             g = stamps[j]
             d = g.shape[0]
             x0 = int(round(cx + radii[j] * k * math.cos(a))) - d // 2
@@ -751,9 +751,9 @@ def _logo_layers(levels, width, height, field):
             ys, xs = ys + y0, xs + x0
             ok = (ys >= 0) & (ys < height) & (xs >= 0) & (xs < width)
             ys, xs, w = ys[ok], xs[ok], w[ok]
-            img[ys, xs] = np.maximum(img[ys, xs], (col * (0.13 + 0.87 * on) * w).astype(np.uint8))
-            if on > 0:                                         # unlit: the logo's quiet dots
-                music[ys, xs] = np.maximum(music[ys, xs], (col * on * w).astype(np.uint8))
+            dot = (col * on * w).astype(np.uint8)
+            img[ys, xs] = np.maximum(img[ys, xs], dot)
+            music[ys, xs] = np.maximum(music[ys, xs], dot)
     return img, music
 
 
@@ -762,7 +762,7 @@ def draw_logo(levels, peaks, width, height, field, peak_colour, show_peaks=True)
     dots, in the same places and sizes, scaled to the panel. Each dot is a
     round dot, growing ring by ring in the logo's proportions. Each
     spoke lights outward from the middle the louder its part of the music
-    (silence lights none), the next dot glowing up as the music grows."""
+    (silence shows nothing at all), the next dot glowing up as it grows."""
     return Image.fromarray(_logo_layers(levels, width, height, field)[0], "RGB")
 
 
@@ -772,7 +772,7 @@ _logo_trails = {}
 def draw_logo_trails(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False):
     """Logo, with Trails' echo: the dots the music lights grow a little and
     fade behind each new picture, so every beat flies outward from the ring.
-    Only the lit dots leave a trail; the faint unlit dots stay crisp in place."""
+    Nothing shows until its part of the music is heard."""
     frame, music = _logo_layers(levels, width, height, field)
     music = music.astype(float)
     if still:                                                    # a made-up history for the still
@@ -792,8 +792,8 @@ def draw_logo_trails(levels, peaks, width, height, field, peak_colour, show_peak
 
 def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True):
     """Rays round an empty circle, longer where the music is louder and
-    widening as they go out, like the Ring logo; the circle itself always
-    faintly lit."""
+    widening as they go out, like the Ring logo. Nothing shows until its
+    part of the music is heard."""
     img = Image.new("RGB", (width, height))
     d = ImageDraw.Draw(img)
     cx, cy = (width - 1) / 2, (height - 1) / 2
@@ -801,9 +801,6 @@ def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True)
     r0 = size * 0.2
     reach = size / 2 - r0 - 1.5
     rows = len(field) - 1
-    mid = field.shape[1] // 2
-    d.ellipse([cx - r0 + 2, cy - r0 + 2, cx + r0 - 2, cy + r0 - 2],
-              outline=tuple(int(v) for v in field[rows // 2, mid] * 0.7), width=1)
     n = max(10, min(32, int(2 * math.pi * r0 / 3.4)))          # room between spokes
     w_end = 2.0 if size >= 48 else 1.0                         # a gentle taper: 1 LED at the circle, 2 at the tip
     for a, lv, pk, i in _around(levels, peaks, n):
@@ -826,8 +823,8 @@ def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True)
 
 
 def draw_dots(levels, peaks, width, height, field, peak_colour, show_peaks=True):
-    """Big "LEDs" in columns (2x2 with a gap on a big panel), the unlit ones
-    faintly showing, like the LED grid logo."""
+    """Big "LEDs" in columns (2x2 with a gap on a big panel), like the LED
+    grid logo; nothing shows until its part of the music is heard."""
     img = np.zeros((height, width, 3), dtype=np.uint8)
     n = len(levels)
     dot = 2 if min(width, height) >= 48 else 1
@@ -847,7 +844,7 @@ def draw_dots(levels, peaks, width, height, field, peak_colour, show_peaks=True)
             elif show_peaks and r == top:
                 fill = _peak_rgb(field, i, peak_colour)
             else:
-                fill = col * 0.07
+                continue                                         # unlit: nothing, until it's heard
             x0 = left + c * pitch
             y0 = top_edge + (rows_n - 1 - r) * pitch
             img[y0:y0 + dot, x0:x0 + dot] = np.asarray(fill).astype(np.uint8)

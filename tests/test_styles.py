@@ -307,5 +307,15 @@ def test_logo_dots_are_circles_in_the_logos_proportions_and_silence_lights_nothi
     f = colour_field("mono", 16, 64)
     quiet = np.asarray(draw("logo", np.zeros(16), np.zeros(16), 64, 64, f))
     loud = np.asarray(draw("logo", np.ones(16), np.ones(16), 64, 64, f))
-    assert quiet.max() < 60                                  # only the faint unlit dots
+    assert quiet.max() == 0                                  # silence: nothing at all
     assert (loud.max(axis=2) > 200).sum() > 200              # every dot lit
+
+
+@pytest.mark.parametrize("style", ["logo", "logotrails", "ledring", "ring", "dots", "meter"])
+def test_silence_shows_nothing(style):
+    # no faint unlit dots, segments or rings: nothing until the music is heard
+    import styles
+    styles._logo_trails.clear()                              # no trail left from earlier music
+    f = colour_field("mono", 16, 64)
+    quiet = np.asarray(draw(style, np.zeros(16), np.zeros(16), 64, 64, f))
+    assert quiet.max() == 0
