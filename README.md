@@ -13,8 +13,8 @@
 | ![Mirror](docs/style-mirror.gif) | ![Wave](docs/style-wave.gif) | ![Waterfall](docs/style-waterfall.gif) | ![Needle](docs/style-vu.gif) |
 | **Analyser** (Classic) | **Scope** (Ocean) | **Trails** (Fire) | **Plasma** (Aurora) |
 | ![Analyser](docs/style-analyser.gif) | ![Scope](docs/style-scope.gif) | ![Trails](docs/style-trails.gif) | ![Plasma](docs/style-plasma.gif) |
-| **Matrix** (Phosphor) | | | |
-| ![Matrix](docs/style-matrix.gif) | | | |
+| **Matrix** (Phosphor) | **Logo** (Warm white) | | |
+| ![Matrix](docs/style-matrix.gif) | ![Logo](docs/style-logo.gif) | | |
 
 A graphic equaliser for an RGB LED matrix on a Raspberry Pi. Play music on your
 Sonos from your iPhone, and the panel on the wall bounces along to it: bass on
@@ -84,11 +84,16 @@ Spotify app --("Equalize")--> librespot (Raspotify) --pipe--> OwnTone
 ```
 
 ### Styles
-Seventeen ways to draw the music, plus plain bars. The control panel groups
+Eighteen ways to draw the music, plus plain bars. The control panel groups
 them: *Rings*, *Bars and meters*, *Waves*, and *Effects and games*. The first
 three here match the logos (you choose the logo at the bottom of the control panel):
 - **LED ring** (default): rings of LED dots round the middle, the inner ring
   always faintly lit, each spoke lighting outward further where it's louder.
+- **Logo**: the LED ring logo itself, moving. The same 24 spokes of 5
+  rings, with the dots in the same places and sizes as the logo (the small
+  version, 12 spokes of 3, on panels under 48 LEDs). The inner two rings
+  always lit, as in the logo; each spoke lights further out where it's
+  louder. In Warm white it is the logo.
 - **Ring**: rays round an empty circle, longer where it's louder.
 - **LED grid**: big round "LEDs" in columns, the unlit ones faintly showing.
 
