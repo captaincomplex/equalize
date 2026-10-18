@@ -146,7 +146,7 @@ def banner():
     wm = wm.resize((620, round(wm.height * 620 / wm.width)), Image.LANCZOS)
     img.paste(wm, (430, 72), wm)
     d = ImageDraw.Draw(img)
-    d.text((446, 282), "YOUR MUSIC, ON AN LED PANEL", font=ImageFont.truetype(FONT, 44), fill=(150, 146, 138))
+    d.text((446, 282), "MUSIC YOU CAN SEE.", font=ImageFont.truetype(FONT, 44), fill=(150, 146, 138))
     img.save(os.path.join(HERE, "banner.png"))
 
 

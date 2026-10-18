@@ -274,12 +274,18 @@ python3 image/make_logo.py                                # rebuild the logo fil
 
 ## The logo
 
-A vaporwave sun setting over a neon grid, except the sun is made of equaliser
-bars. Each bar stops short of the circle, and its peak cap hangs where the
-circle's edge would be, so the caps trace the sun's outline. The wordmark is
-set in condensed capitals cut into equaliser bars, with one peak cap lit on the *I*. The palette (night purple, a sun
-running pale yellow to peach, pink and purple, and a cyan grid) is shared by
-the icon, the web panel and the *vapor* LED theme.
+The icon is a ring of LEDs. Each circle of dots is bigger than the one inside it,
+so the ring opens out like a ripple. The innermost circles are always lit, and
+further out each ray is lit as far as the music is loud at that angle, so the
+shape is different from one song to the next. It is warm white on near-black,
+the colours of the panel itself. At 32 px and below it is drawn with fewer,
+bigger dots, because the full ring turns to mush at that size. You can pick two
+other logos in the control panel (*Ring* and *LED grid*).
+
+The wordmark is condensed capitals cut into equaliser bars, with one peak cap
+left lit on the *I*. The banner pairs the ring icon with the wordmark and the
+line "Music you can see." The sunset-over-a-neon-grid picture is the web panel's
+*vapor* look, not the logo.
 These run the real analysis and drawing code on any computer with numpy and Pillow.
 
 ## Files
