@@ -283,8 +283,7 @@ bigger dots, because the full ring turns to mush at that size. You can pick two
 other logos in the control panel (*Ring* and *LED grid*).
 
 The wordmark is condensed capitals cut into equaliser bars, with one peak cap
-left lit on the *I*. The banner pairs the ring icon with the wordmark and the
-line "Music you can see." The sunset-over-a-neon-grid picture is the web panel's
+left lit on the *I*. The banner pairs the ring icon with the wordmark. The sunset-over-a-neon-grid picture is the web panel's
 *vapor* look, not the logo.
 These run the real analysis and drawing code on any computer with numpy and Pillow.
 
