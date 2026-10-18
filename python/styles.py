@@ -24,8 +24,8 @@ styles.py -- the four ways Equalize can draw the music, one per logo.
     ledring rings of LED dots around the middle, lit outward further where
             the music is louder (the LED ring logo; the default)
     ring    rays around an empty circle, longer where louder (the Ring logo)
-    dots    big round "LEDs" in columns, the unlit ones faintly showing (the
-            LED grid logo)
+    logo    the LED ring logo itself, moving; logotrails: with Trails' echo
+    dots    big round "LEDs" in columns (the LED grid logo)
     dance   Dance Dance Revolution: four lanes (or eight, with diagonals),
             lowest notes on the left, send rounded arrows scrolling up to a
             row of targets on each beat
@@ -45,16 +45,16 @@ from PIL import Image, ImageDraw
 
 from render import IDLE_FLOOR, bar_layout, render
 
-STYLES = ["ledring", "ring", "dots", "sunset", "disc", "meter", "equals", "mirror", "wave",
+STYLES = ["ledring", "logo", "logotrails", "ring", "dots", "sunset", "disc", "meter", "equals", "mirror", "wave",
           "waterfall", "vu", "analyser", "scope", "trails", "plasma", "dance", "matrix", "bars"]
-STYLE_LABELS = {"dance": "Dance", "matrix": "Matrix", "ledring": "LED ring", "ring": "Ring", "dots": "LED grid", "sunset": "Sunset", "disc": "Disc", "meter": "Meter",
+STYLE_LABELS = {"logo": "Logo", "logotrails": "Logo trails", "dance": "Dance", "matrix": "Matrix", "ledring": "LED ring", "ring": "Ring", "dots": "LED grid", "sunset": "Sunset", "disc": "Disc", "meter": "Meter",
                 "equals": "Equals", "mirror": "Mirror", "wave": "Wave",
                 "waterfall": "Waterfall", "vu": "Needle", "analyser": "Analyser",
                 "scope": "Scope", "trails": "Trails", "plasma": "Plasma",
                 "bars": "Plain bars"}
 # How the control panel groups them, so like sits with like.
 STYLE_GROUPS = [
-    ("Rings", ["ledring", "ring", "disc"]),
+    ("Rings", ["ledring", "logo", "logotrails", "ring", "disc"]),
     ("Bars and meters", ["bars", "dots", "meter", "analyser", "equals", "mirror", "sunset", "vu"]),
     ("Waves", ["wave", "scope", "trails", "waterfall"]),
     ("Effects and games", ["plasma", "matrix", "dance"]),
@@ -643,8 +643,8 @@ def _led(img, x, y, size, colour):
 def draw_ledring(levels, peaks, width, height, field, peak_colour, show_peaks=True):
     """Rings of LED dots round the middle, the dots growing as they go out
     (1, then 2, then 3 LEDs across on a 64-high panel), like the LED ring
-    logo. The inner ring is always faintly lit; each spoke lights outward,
-    further where the music is louder. Unlit dots glow very faintly."""
+    logo. Each spoke lights outward, further where the music is louder;
+    nothing shows until its part of the music is heard."""
     img = np.zeros((height, width, 3), dtype=np.uint8)
     cx, cy = (width - 1) / 2, (height - 1) / 2
     size = min(width, height)
@@ -669,19 +669,131 @@ def draw_ledring(levels, peaks, width, height, field, peak_colour, show_peaks=Tr
                 c = col
             elif show_peaks and j == top and j > 0:
                 c = _peak_rgb(field, i, peak_colour)
-            elif j == 0:
-                c = col * 0.45                                   # the ring itself, always there
             else:
-                c = col * 0.07
+                continue                                         # unlit: nothing, until it's heard
             r = radii[j]
             _led(img, cx + r * math.cos(a), cy + r * math.sin(a), sizes[j], np.asarray(c).astype(np.uint8))
     return Image.fromarray(img, "RGB")
 
 
+# The LED ring logo's own geometry (image/build_logos.py, on a 512 square):
+# spokes, then each ring's radius and dot radius. The small version is the
+# one the logo uses at icon sizes.
+LOGO_FULL = (24, (88, 118, 152, 190, 232), (7, 9.5, 12, 14.5, 17), 2)
+LOGO_SMALL = (12, (104, 162, 228), (17, 23, 30), 1)
+
+
+@lru_cache(maxsize=64)
+def _disc(radius):
+    """A round dot of this radius (in LEDs), centred on an LED: how much of
+    each LED it covers, 0..1. The edge LEDs glow at part strength, which is
+    what makes a handful of LEDs read as a circle rather than a square or a
+    cross. Every dot of one ring is the same, wherever it sits."""
+    half = int(math.ceil(radius - 0.5))
+    n = 2 * half + 1
+    ss = 8
+    yy, xx = (np.mgrid[0:n * ss, 0:n * ss] + 0.5) / ss - n / 2
+    inside = (xx ** 2 + yy ** 2 <= radius ** 2).astype(float)
+    cover = inside.reshape(n, ss, n, ss).mean(axis=(1, 3))
+    glow = np.clip(cover * 1.3, 0, 1) ** 0.8                   # edges a touch stronger, so it isn't dim
+    glow[glow < 0.12] = 0
+    return glow
+
+
+@lru_cache(maxsize=8)
+def _logo_dot_radii(size):
+    """Each ring's dot radius in LEDs: the logo's, scaled to the panel, and
+    enlarged together (so the proportions hold) when the smallest would be
+    under 2 LEDs across -- but never so far that dots touch."""
+    n, radii, dots, _ = LOGO_FULL if size >= 48 else LOGO_SMALL
+    k = size / 512.0
+    grow = max(1.0, 1.0 / (dots[0] * k))
+    for j in range(len(radii)):                                  # keep a gap round the ring ...
+        pitch = 2 * math.pi * radii[j] * k / n
+        grow = min(grow, 0.42 * pitch / (dots[j] * k))
+        if j + 1 < len(radii):                                   # ... and outward
+            grow = min(grow, 0.9 * (radii[j + 1] - radii[j]) / (dots[j] + dots[j + 1]))
+    edge = size / 2 - radii[-1] * k                              # and the outer ring on the panel
+    grow = min(grow, (edge + 0.5) / (dots[-1] * k))
+    return tuple(d * k * grow for d in dots)
+
+
+def _logo_layers(levels, width, height, field):
+    """The logo frame, and the part of it the music lit (for Logo trails)."""
+    size = min(width, height)
+    n, radii, dots, _ = LOGO_FULL if size >= 48 else LOGO_SMALL
+    rings = len(radii)
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+    music = np.zeros((height, width, 3), dtype=np.uint8)
+    k = size / 512.0                                           # logo units to LEDs
+    cx, cy = (width - 1) / 2, (height - 1) / 2
+    lv = np.asarray(levels, dtype=float)
+    nb = len(lv)
+    rows = len(field) - 1
+    stamps = [_disc(r) for r in _logo_dot_radii(size)]
+    for s_ in range(n):
+        a = 2 * math.pi * s_ / n - math.pi / 2                 # from the top, clockwise, as the logo
+        # bass at the bottom, treble at the top, the same on both sides
+        from_bottom = abs(((a - math.pi / 2 + math.pi) % (2 * math.pi)) - math.pi) / math.pi
+        i = min(nb - 1, int(from_bottom * nb))
+        lit = rings * float(np.clip(lv[i], 0, 1))              # silent: nothing lit
+        col = np.asarray(field[int(rows * 0.85), min(field.shape[1] - 1, i)], dtype=float)
+        for j in range(rings):
+            on = float(np.clip(lit - j, 0, 1))
+            if on <= 0:
+                break                                          # nothing further out on this spoke
+            g = stamps[j]
+            d = g.shape[0]
+            x0 = int(round(cx + radii[j] * k * math.cos(a))) - d // 2
+            y0 = int(round(cy + radii[j] * k * math.sin(a))) - d // 2
+            ys, xs = np.nonzero(g)
+            w = g[ys, xs][:, None]
+            ys, xs = ys + y0, xs + x0
+            ok = (ys >= 0) & (ys < height) & (xs >= 0) & (xs < width)
+            ys, xs, w = ys[ok], xs[ok], w[ok]
+            dot = (col * on * w).astype(np.uint8)
+            img[ys, xs] = np.maximum(img[ys, xs], dot)
+            music[ys, xs] = np.maximum(music[ys, xs], dot)
+    return img, music
+
+
+def draw_logo(levels, peaks, width, height, field, peak_colour, show_peaks=True):
+    """The LED ring logo itself, moving: the same spokes, rings and round
+    dots, in the same places and sizes, scaled to the panel. Each dot is a
+    round dot, growing ring by ring in the logo's proportions. Each
+    spoke lights outward from the middle the louder its part of the music
+    (silence shows nothing at all), the next dot glowing up as it grows."""
+    return Image.fromarray(_logo_layers(levels, width, height, field)[0], "RGB")
+
+
+_logo_trails = {}
+
+
+def draw_logo_trails(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False):
+    """Logo, with Trails' echo: the dots the music lights grow a little and
+    fade behind each new picture, so every beat flies outward from the ring.
+    Nothing shows until its part of the music is heard."""
+    frame, music = _logo_layers(levels, width, height, field)
+    music = music.astype(float)
+    if still:                                                    # a made-up history for the still
+        trail = music.copy()
+        for k in range(1, 9):
+            trail = np.maximum(trail, _grow(music, 1 + 0.08 * k, 0.82 ** k))
+    else:
+        key = (width, height)
+        prev = _logo_trails.get(key)
+        if prev is None:
+            _logo_trails.clear()
+            prev = np.zeros_like(music)
+        trail = np.maximum(_grow(prev, 1.06, 0.86), music)
+        _logo_trails[key] = trail
+    return Image.fromarray(np.maximum(frame, trail.astype(np.uint8)), "RGB")
+
+
 def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True):
     """Rays round an empty circle, longer where the music is louder and
-    widening as they go out, like the Ring logo; the circle itself always
-    faintly lit."""
+    widening as they go out, like the Ring logo. Nothing shows until its
+    part of the music is heard."""
     img = Image.new("RGB", (width, height))
     d = ImageDraw.Draw(img)
     cx, cy = (width - 1) / 2, (height - 1) / 2
@@ -689,9 +801,6 @@ def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True)
     r0 = size * 0.2
     reach = size / 2 - r0 - 1.5
     rows = len(field) - 1
-    mid = field.shape[1] // 2
-    d.ellipse([cx - r0 + 2, cy - r0 + 2, cx + r0 - 2, cy + r0 - 2],
-              outline=tuple(int(v) for v in field[rows // 2, mid] * 0.7), width=1)
     n = max(10, min(32, int(2 * math.pi * r0 / 3.4)))          # room between spokes
     w_end = 2.0 if size >= 48 else 1.0                         # a gentle taper: 1 LED at the circle, 2 at the tip
     for a, lv, pk, i in _around(levels, peaks, n):
@@ -714,8 +823,8 @@ def draw_ring(levels, peaks, width, height, field, peak_colour, show_peaks=True)
 
 
 def draw_dots(levels, peaks, width, height, field, peak_colour, show_peaks=True):
-    """Big "LEDs" in columns (2x2 with a gap on a big panel), the unlit ones
-    faintly showing, like the LED grid logo."""
+    """Big "LEDs" in columns (2x2 with a gap on a big panel), like the LED
+    grid logo; nothing shows until its part of the music is heard."""
     img = np.zeros((height, width, 3), dtype=np.uint8)
     n = len(levels)
     dot = 2 if min(width, height) >= 48 else 1
@@ -735,7 +844,7 @@ def draw_dots(levels, peaks, width, height, field, peak_colour, show_peaks=True)
             elif show_peaks and r == top:
                 fill = _peak_rgb(field, i, peak_colour)
             else:
-                fill = col * 0.07
+                continue                                         # unlit: nothing, until it's heard
             x0 = left + c * pitch
             y0 = top_edge + (rows_n - 1 - r) * pitch
             img[y0:y0 + dot, x0:x0 + dot] = np.asarray(fill).astype(np.uint8)
@@ -1167,6 +1276,8 @@ def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peak
                           lanes_n=dance_lanes, dt=dt, wave=wave)
     if style == "trails":
         return draw_trails(levels, peaks, width, height, field, peak_colour, show_peaks, still)
+    if style == "logotrails":
+        return draw_logo_trails(levels, peaks, width, height, field, peak_colour, show_peaks, still)
     if style == "scope":
         return draw_scope(levels, peaks, width, height, field, peak_colour, show_peaks, wave)
     if style == "plasma":
@@ -1174,7 +1285,7 @@ def draw(style, levels, peaks, width, height, field, peak_colour=None, show_peak
                            t=12.0 if still else None)
     fn = {"sunset": draw_sunset, "disc": draw_disc, "meter": draw_meter,
           "equals": draw_equals, "mirror": draw_mirror, "wave": draw_wave,
-          "vu": draw_vu, "analyser": draw_analyser, "ledring": draw_ledring,
+          "vu": draw_vu, "analyser": draw_analyser, "ledring": draw_ledring, "logo": draw_logo,
           "ring": draw_ring, "dots": draw_dots}.get(style, draw_sunset)
     return fn(levels, peaks, width, height, field, peak_colour, show_peaks)
 

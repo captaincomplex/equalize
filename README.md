@@ -13,8 +13,8 @@
 | ![Mirror](docs/style-mirror.gif) | ![Wave](docs/style-wave.gif) | ![Waterfall](docs/style-waterfall.gif) | ![Needle](docs/style-vu.gif) |
 | **Analyser** (Classic) | **Scope** (Ocean) | **Trails** (Fire) | **Plasma** (Aurora) |
 | ![Analyser](docs/style-analyser.gif) | ![Scope](docs/style-scope.gif) | ![Trails](docs/style-trails.gif) | ![Plasma](docs/style-plasma.gif) |
-| **Matrix** (Phosphor) | | | |
-| ![Matrix](docs/style-matrix.gif) | | | |
+| **Matrix** (Phosphor) | **Logo** (Warm white) | **Logo trails** (Warm white) | |
+| ![Matrix](docs/style-matrix.gif) | ![Logo](docs/style-logo.gif) | ![Logo trails](docs/style-logotrails.gif) | |
 
 A graphic equaliser for an RGB LED matrix on a Raspberry Pi. Play music on your
 Sonos from your iPhone, and the panel on the wall bounces along to it: bass on
@@ -88,13 +88,26 @@ Spotify app --("Equalize")--> librespot (Raspotify) --pipe--> OwnTone
 ```
 
 ### Styles
-Seventeen ways to draw the music, plus plain bars. The control panel groups
+Nineteen ways to draw the music, plus plain bars. The control panel groups
 them: *Rings*, *Bars and meters*, *Waves*, and *Effects and games*. The first
 three here match the logos (you choose the logo at the bottom of the control panel):
-- **LED ring** (default): rings of LED dots round the middle, the inner ring
-  always faintly lit, each spoke lighting outward further where it's louder.
+- **LED ring** (default): rings of LED dots round the middle, each spoke
+  lighting outward further where it's louder.
+- **Logo**: the LED ring logo itself, moving. The same 24 spokes of 5
+  rings in the logo's places (the small version, 12 spokes of 3, on panels
+  under 48 LEDs), and round dots growing ring by ring in exactly the logo's
+  proportions; the LEDs at each dot's edge glow at part strength, which is
+  what makes a few LEDs read as a circle. Each spoke lights outward the
+  louder it is. No dots at all until their part of the music is heard.
+- **Logo trails**: Logo with Trails' echo. The dots the music lights grow
+  and fade behind each new picture, so every beat flies outward from the
+  ring.
 - **Ring**: rays round an empty circle, longer where it's louder.
-- **LED grid**: big round "LEDs" in columns, the unlit ones faintly showing.
+- **LED grid**: big round "LEDs" in columns.
+
+LED ring, Logo, Logo trails, Ring and LED grid show nothing for a part of
+the music until it is heard: no faint unlit dots or rings, so a quiet room
+means a dark panel.
 
 - **Dance** (best in Rainbow): Dance Dance Revolution. Four lanes, ← bass,
   ↓ low-mid, ↑ high-mid, → treble, or eight with the diagonals (← ↖ ↙ ↓ ↑ ↘ ↗ →,
