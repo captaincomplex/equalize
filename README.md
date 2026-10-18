@@ -91,10 +91,10 @@ three here match the logos (you choose the logo at the bottom of the control pan
   always faintly lit, each spoke lighting outward further where it's louder.
 - **Logo**: the LED ring logo itself, moving. The same 24 spokes of 5
   rings in the logo's places (the small version, 12 spokes of 3, on panels
-  under 48 LEDs), the dots growing ring by ring in the logo's proportions:
-  an LED is on or off, so each ring gets the LED shape (2x2, a plus, 3x3,
-  4x4, a rounded 5x5 on a 64-LED panel) that keeps the logo's ratios best.
-  Each spoke lights outward the louder it is; silence lights none.
+  under 48 LEDs), and round dots growing ring by ring in exactly the logo's
+  proportions; the LEDs at each dot's edge glow at part strength, which is
+  what makes a few LEDs read as a circle. Each spoke lights outward the
+  louder it is; silence lights none.
 - **Logo trails**: Logo with Trails' echo. The dots the music lights grow
   and fade behind each new picture, so every beat flies outward from the
   ring; the faint unlit dots stay crisp in place.

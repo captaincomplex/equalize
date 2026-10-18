@@ -292,11 +292,18 @@ def test_every_style_is_in_exactly_one_group():
     assert sorted(grouped) == sorted(STYLES)
 
 
-def test_logo_dots_grow_ring_by_ring_and_silence_lights_nothing():
-    from styles import _logo_dots
-    for size in (32, 64, 96, 128):
-        counts = [int(m.sum()) for m in _logo_dots(size)]
-        assert counts == sorted(counts) and len(set(counts)) == len(counts), (size, counts)
+def test_logo_dots_are_circles_in_the_logos_proportions_and_silence_lights_nothing():
+    from styles import LOGO_FULL, LOGO_SMALL, _disc, _logo_dot_radii
+    for size in (32, 48, 64, 96, 128):
+        dots = (LOGO_FULL if size >= 48 else LOGO_SMALL)[2]
+        radii = _logo_dot_radii(size)
+        ratios = [r / radii[0] for r in radii]
+        assert np.allclose(ratios, [d / dots[0] for d in dots])          # exactly the logo's
+        light = [_disc(r).sum() for r in radii]
+        assert light == sorted(light) and len(set(light)) == len(light)   # each ring bigger
+        for r in radii:                                                    # round: symmetric
+            g = _disc(r)
+            assert np.allclose(g, g.T) and np.allclose(g, g[::-1]) and np.allclose(g, g[:, ::-1])
     f = colour_field("mono", 16, 64)
     quiet = np.asarray(draw("logo", np.zeros(16), np.zeros(16), 64, 64, f))
     loud = np.asarray(draw("logo", np.ones(16), np.ones(16), 64, 64, f))

@@ -685,60 +685,39 @@ LOGO_FULL = (24, (88, 118, 152, 190, 232), (7, 9.5, 12, 14.5, 17), 2)
 LOGO_SMALL = (12, (104, 162, 228), (17, 23, 30), 1)
 
 
-@lru_cache(maxsize=16)
-def _round_dot(d, rounded=True):
-    """A dot d LEDs across: square, or with the corners off (a plus of 3, a
-    rounded 4x4...), so the sizes come in small steps of area."""
-    yy, xx = np.mgrid[0:d, 0:d]
-    if not rounded:
-        return np.ones((d, d), dtype=bool)
-    c = (d - 1) / 2
-    return (xx - c) ** 2 + (yy - c) ** 2 <= (d / 2 - 0.15) ** 2
-
-
-# Every dot shape on offer, smallest area first: (LEDs lit, across, rounded).
-_DOT_SHAPES = sorted({int(_round_dot(d, r).sum()): (int(_round_dot(d, r).sum()), d, r)
-                      for d in range(9, 0, -1) for r in (False, True)}.values())
-
-
-LOGO_SIZE_WEIGHT = 0.5         # proportions first; actual size second
+@lru_cache(maxsize=64)
+def _disc(radius):
+    """A round dot of this radius (in LEDs), centred on an LED: how much of
+    each LED it covers, 0..1. The edge LEDs glow at part strength, which is
+    what makes a handful of LEDs read as a circle rather than a square or a
+    cross. Every dot of one ring is the same, wherever it sits."""
+    half = int(math.ceil(radius - 0.5))
+    n = 2 * half + 1
+    ss = 8
+    yy, xx = (np.mgrid[0:n * ss, 0:n * ss] + 0.5) / ss - n / 2
+    inside = (xx ** 2 + yy ** 2 <= radius ** 2).astype(float)
+    cover = inside.reshape(n, ss, n, ss).mean(axis=(1, 3))
+    glow = np.clip(cover * 1.3, 0, 1) ** 0.8                   # edges a touch stronger, so it isn't dim
+    glow[glow < 0.12] = 0
+    return glow
 
 
 @lru_cache(maxsize=8)
-def _logo_dots(size):
-    """The dot shape for each ring, so the dots grow ring by ring in the
-    same proportions as the logo's. An LED is on or off, so a dot can't be
-    1.75 LEDs across; instead each ring gets the shape whose area (in LEDs)
-    keeps the logo's ratios best, every ring bigger than the one inside it,
-    and every dot clear of its neighbours (round the ring and outward)."""
+def _logo_dot_radii(size):
+    """Each ring's dot radius in LEDs: the logo's, scaled to the panel, and
+    enlarged together (so the proportions hold) when the smallest would be
+    under 2 LEDs across -- but never so far that dots touch."""
     n, radii, dots, _ = LOGO_FULL if size >= 48 else LOGO_SMALL
     k = size / 512.0
-    want = [math.pi * (d * k) ** 2 for d in dots]               # each dot's area in the logo, in LEDs
-    room = []                                                  # the widest dot each ring has room for
-    for j, r in enumerate(radii):
-        across = 2 * math.pi * r * k / n - 0.6                 # a clear gap to the next spoke
-        edge = size / 2 - r * k                                # from the dot's centre to the panel's edge
-        out = (radii[j + 1] - r) * k if j + 1 < len(radii) else edge + 1
-        inn = (r - radii[j - 1]) * k if j else r * k
-        room.append(min(across, 2 * min(out, inn) - 1, 2 * edge + 1))
-    # every sequence of shapes that grows ring by ring and fits, scored on
-    # keeping the logo's proportions and staying near its actual sizes
-    from itertools import combinations
-    best, best_cost = None, None
-    fits = [[i for i, sh in enumerate(_DOT_SHAPES) if sh[1] <= room[j]] for j in range(len(radii))]
-    pool = sorted(set(fits[0]).union(*fits[1:]))
-    for seq in combinations(pool, len(radii)):
-        if any(i not in fits[j] for j, i in enumerate(seq)):
-            continue
-        pick = [_DOT_SHAPES[i] for i in seq]
-        a0 = pick[0][0]
-        cost = sum((math.log(p[0] / a0) - math.log(w / want[0])) ** 2
-                   + LOGO_SIZE_WEIGHT * math.log(p[0] / w) ** 2 for p, w in zip(pick, want))
-        if best_cost is None or cost < best_cost:
-            best, best_cost = pick, cost
-    if best is None:                                           # a panel too small for the steps
-        best = [_DOT_SHAPES[0]] * len(radii)
-    return tuple(_round_dot(d, r) for _, d, r in best)
+    grow = max(1.0, 1.0 / (dots[0] * k))
+    for j in range(len(radii)):                                  # keep a gap round the ring ...
+        pitch = 2 * math.pi * radii[j] * k / n
+        grow = min(grow, 0.42 * pitch / (dots[j] * k))
+        if j + 1 < len(radii):                                   # ... and outward
+            grow = min(grow, 0.9 * (radii[j + 1] - radii[j]) / (dots[j] + dots[j + 1]))
+    edge = size / 2 - radii[-1] * k                              # and the outer ring on the panel
+    grow = min(grow, (edge + 0.5) / (dots[-1] * k))
+    return tuple(d * k * grow for d in dots)
 
 
 def _logo_layers(levels, width, height, field):
@@ -753,7 +732,7 @@ def _logo_layers(levels, width, height, field):
     lv = np.asarray(levels, dtype=float)
     nb = len(lv)
     rows = len(field) - 1
-    stamps = _logo_dots(size)
+    stamps = [_disc(r) for r in _logo_dot_radii(size)]
     for s_ in range(n):
         a = 2 * math.pi * s_ / n - math.pi / 2                 # from the top, clockwise, as the logo
         # bass at the bottom, treble at the top, the same on both sides
@@ -763,24 +742,25 @@ def _logo_layers(levels, width, height, field):
         col = np.asarray(field[int(rows * 0.85), min(field.shape[1] - 1, i)], dtype=float)
         for j in range(rings):
             on = float(np.clip(lit - j, 0, 1))
-            c = (col * (0.13 + 0.87 * on)).astype(np.uint8)    # unlit: the logo's quiet dots
-            m = stamps[j]
-            d = m.shape[0]
-            x0 = int(round(cx + radii[j] * k * math.cos(a) - (d - 1) / 2))
-            y0 = int(round(cy + radii[j] * k * math.sin(a) - (d - 1) / 2))
-            ys, xs = np.nonzero(m)
+            g = stamps[j]
+            d = g.shape[0]
+            x0 = int(round(cx + radii[j] * k * math.cos(a))) - d // 2
+            y0 = int(round(cy + radii[j] * k * math.sin(a))) - d // 2
+            ys, xs = np.nonzero(g)
+            w = g[ys, xs][:, None]
             ys, xs = ys + y0, xs + x0
             ok = (ys >= 0) & (ys < height) & (xs >= 0) & (xs < width)
-            img[ys[ok], xs[ok]] = c
-            if on > 0:
-                music[ys[ok], xs[ok]] = (col * on).astype(np.uint8)
+            ys, xs, w = ys[ok], xs[ok], w[ok]
+            img[ys, xs] = np.maximum(img[ys, xs], (col * (0.13 + 0.87 * on) * w).astype(np.uint8))
+            if on > 0:                                         # unlit: the logo's quiet dots
+                music[ys, xs] = np.maximum(music[ys, xs], (col * on * w).astype(np.uint8))
     return img, music
 
 
 def draw_logo(levels, peaks, width, height, field, peak_colour, show_peaks=True):
     """The LED ring logo itself, moving: the same spokes, rings and round
     dots, in the same places and sizes, scaled to the panel. Each dot is a
-    crisp LED shape, growing ring by ring in the logo's proportions. Each
+    round dot, growing ring by ring in the logo's proportions. Each
     spoke lights outward from the middle the louder its part of the music
     (silence lights none), the next dot glowing up as the music grows."""
     return Image.fromarray(_logo_layers(levels, width, height, field)[0], "RGB")
