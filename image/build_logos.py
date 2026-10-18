@@ -134,15 +134,17 @@ def build():
 
 
 def banner():
-    """README header: the default logo and the name, on the panel's black."""
+    """README header: the default (LED ring) icon and the wordmark, on the panel's black.
+
+    Uses the committed logos/ledring/icon-512.png and wordmark-on-dark.png (so it needs no cairosvg)."""
     from PIL import Image, ImageDraw, ImageFont
     w, h = 1600, 400
     img = Image.new("RGB", (w, h), (15, 16, 18))
     icon = Image.open(os.path.join(OUT, DEFAULT, "icon-512.png")).convert("RGBA").resize((260, 260), Image.LANCZOS)
     img.paste(icon, (110, 70), icon)
-    d = ImageDraw.Draw(img)
-    d.text((440, 92), "EQUALIZE", font=ImageFont.truetype(FONT, 150), fill=(242, 236, 222))
-    d.text((446, 262), "YOUR MUSIC, ON AN LED PANEL", font=ImageFont.truetype(FONT, 44), fill=(150, 146, 138))
+    wm = Image.open(os.path.join(HERE, "wordmark-on-dark.png")).convert("RGBA")
+    wm = wm.resize((620, round(wm.height * 620 / wm.width)), Image.LANCZOS)
+    img.paste(wm, (430, 114), wm)
     img.save(os.path.join(HERE, "banner.png"))
 
 
