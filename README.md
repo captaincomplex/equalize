@@ -21,6 +21,10 @@ Sonos from your iPhone, and the panel on the wall bounces along to it: bass on
 the left, treble on the right, bars shooting up on each beat and falling back
 under gravity.
 
+The control panel runs on the Pi and opens on any phone or computer on the same network:
+
+<img src="docs/control-panel.webp" width="280" alt="The Equalize control panel on a phone, showing what is on the panel and what is playing">
+
 **No microphone.** The Pi never listens to the room. It joins your AirPlay
 group as a silent speaker called **Equalize**, receives the same digital audio
 your Sonos gets, perfectly in time, and draws it.
