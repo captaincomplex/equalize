@@ -686,18 +686,65 @@ LOGO_SMALL = (12, (104, 162, 228), (17, 23, 30), 1)
 
 
 @lru_cache(maxsize=16)
-def _round_dot(d):
-    """A round dot d LEDs across: 1 LED, 2x2, a plus of 3, a rounded 4x4..."""
-    c = (d - 1) / 2
-    r2 = (d / 2 - 0.15) ** 2
+def _round_dot(d, rounded=True):
+    """A dot d LEDs across: square, or with the corners off (a plus of 3, a
+    rounded 4x4...), so the sizes come in small steps of area."""
     yy, xx = np.mgrid[0:d, 0:d]
-    return (xx - c) ** 2 + (yy - c) ** 2 <= r2
+    if not rounded:
+        return np.ones((d, d), dtype=bool)
+    c = (d - 1) / 2
+    return (xx - c) ** 2 + (yy - c) ** 2 <= (d / 2 - 0.15) ** 2
+
+
+# Every dot shape on offer, smallest area first: (LEDs lit, across, rounded).
+_DOT_SHAPES = sorted({int(_round_dot(d, r).sum()): (int(_round_dot(d, r).sum()), d, r)
+                      for d in range(9, 0, -1) for r in (False, True)}.values())
+
+
+LOGO_SIZE_WEIGHT = 0.5         # proportions first; actual size second
+
+
+@lru_cache(maxsize=8)
+def _logo_dots(size):
+    """The dot shape for each ring, so the dots grow ring by ring in the
+    same proportions as the logo's. An LED is on or off, so a dot can't be
+    1.75 LEDs across; instead each ring gets the shape whose area (in LEDs)
+    keeps the logo's ratios best, every ring bigger than the one inside it,
+    and every dot clear of its neighbours (round the ring and outward)."""
+    n, radii, dots, _ = LOGO_FULL if size >= 48 else LOGO_SMALL
+    k = size / 512.0
+    want = [math.pi * (d * k) ** 2 for d in dots]               # each dot's area in the logo, in LEDs
+    room = []                                                  # the widest dot each ring has room for
+    for j, r in enumerate(radii):
+        across = 2 * math.pi * r * k / n - 0.6                 # a clear gap to the next spoke
+        edge = size / 2 - r * k                                # from the dot's centre to the panel's edge
+        out = (radii[j + 1] - r) * k if j + 1 < len(radii) else edge + 1
+        inn = (r - radii[j - 1]) * k if j else r * k
+        room.append(min(across, 2 * min(out, inn) - 1, 2 * edge + 1))
+    # every sequence of shapes that grows ring by ring and fits, scored on
+    # keeping the logo's proportions and staying near its actual sizes
+    from itertools import combinations
+    best, best_cost = None, None
+    fits = [[i for i, sh in enumerate(_DOT_SHAPES) if sh[1] <= room[j]] for j in range(len(radii))]
+    pool = sorted(set(fits[0]).union(*fits[1:]))
+    for seq in combinations(pool, len(radii)):
+        if any(i not in fits[j] for j, i in enumerate(seq)):
+            continue
+        pick = [_DOT_SHAPES[i] for i in seq]
+        a0 = pick[0][0]
+        cost = sum((math.log(p[0] / a0) - math.log(w / want[0])) ** 2
+                   + LOGO_SIZE_WEIGHT * math.log(p[0] / w) ** 2 for p, w in zip(pick, want))
+        if best_cost is None or cost < best_cost:
+            best, best_cost = pick, cost
+    if best is None:                                           # a panel too small for the steps
+        best = [_DOT_SHAPES[0]] * len(radii)
+    return tuple(_round_dot(d, r) for _, d, r in best)
 
 
 def _logo_layers(levels, width, height, field):
     """The logo frame, and the part of it the music lit (for Logo trails)."""
     size = min(width, height)
-    n, radii, dots, base = LOGO_FULL if size >= 48 else LOGO_SMALL
+    n, radii, dots, _ = LOGO_FULL if size >= 48 else LOGO_SMALL
     rings = len(radii)
     img = np.zeros((height, width, 3), dtype=np.uint8)
     music = np.zeros((height, width, 3), dtype=np.uint8)
@@ -706,16 +753,16 @@ def _logo_layers(levels, width, height, field):
     lv = np.asarray(levels, dtype=float)
     nb = len(lv)
     rows = len(field) - 1
-    stamps = [_round_dot(max(1, int(round(2 * dr * k)))) for dr in dots]
+    stamps = _logo_dots(size)
     for s_ in range(n):
         a = 2 * math.pi * s_ / n - math.pi / 2                 # from the top, clockwise, as the logo
         # bass at the bottom, treble at the top, the same on both sides
         from_bottom = abs(((a - math.pi / 2 + math.pi) % (2 * math.pi)) - math.pi) / math.pi
         i = min(nb - 1, int(from_bottom * nb))
-        lit = base + (rings - base) * float(np.clip(lv[i], 0, 1))
+        lit = rings * float(np.clip(lv[i], 0, 1))              # silent: nothing lit
         col = np.asarray(field[int(rows * 0.85), min(field.shape[1] - 1, i)], dtype=float)
         for j in range(rings):
-            on = 1.0 if j < base else float(np.clip(lit - j, 0, 1))
+            on = float(np.clip(lit - j, 0, 1))
             c = (col * (0.13 + 0.87 * on)).astype(np.uint8)    # unlit: the logo's quiet dots
             m = stamps[j]
             d = m.shape[0]
@@ -725,7 +772,7 @@ def _logo_layers(levels, width, height, field):
             ys, xs = ys + y0, xs + x0
             ok = (ys >= 0) & (ys < height) & (xs >= 0) & (xs < width)
             img[ys[ok], xs[ok]] = c
-            if j >= base and on > 0:
+            if on > 0:
                 music[ys[ok], xs[ok]] = (col * on).astype(np.uint8)
     return img, music
 
@@ -733,9 +780,9 @@ def _logo_layers(levels, width, height, field):
 def draw_logo(levels, peaks, width, height, field, peak_colour, show_peaks=True):
     """The LED ring logo itself, moving: the same spokes, rings and round
     dots, in the same places and sizes, scaled to the panel. Each dot is a
-    crisp LED shape of the logo's size, so every one reads at full strength.
-    The inner rings are always lit, as in the logo; each spoke lights further
-    out the louder its part of the music, the next dot glowing up as it grows."""
+    crisp LED shape, growing ring by ring in the logo's proportions. Each
+    spoke lights outward from the middle the louder its part of the music
+    (silence lights none), the next dot glowing up as the music grows."""
     return Image.fromarray(_logo_layers(levels, width, height, field)[0], "RGB")
 
 
@@ -745,8 +792,7 @@ _logo_trails = {}
 def draw_logo_trails(levels, peaks, width, height, field, peak_colour, show_peaks=True, still=False):
     """Logo, with Trails' echo: the dots the music lights grow a little and
     fade behind each new picture, so every beat flies outward from the ring.
-    Only the music leaves a trail; the always-lit inner rings and the faint
-    unlit dots stay crisp in place."""
+    Only the lit dots leave a trail; the faint unlit dots stay crisp in place."""
     frame, music = _logo_layers(levels, width, height, field)
     music = music.astype(float)
     if still:                                                    # a made-up history for the still

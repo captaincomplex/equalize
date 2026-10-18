@@ -290,3 +290,15 @@ def test_every_style_is_in_exactly_one_group():
     from styles import STYLE_GROUPS
     grouped = [st for _, members in STYLE_GROUPS for st in members]
     assert sorted(grouped) == sorted(STYLES)
+
+
+def test_logo_dots_grow_ring_by_ring_and_silence_lights_nothing():
+    from styles import _logo_dots
+    for size in (32, 64, 96, 128):
+        counts = [int(m.sum()) for m in _logo_dots(size)]
+        assert counts == sorted(counts) and len(set(counts)) == len(counts), (size, counts)
+    f = colour_field("mono", 16, 64)
+    quiet = np.asarray(draw("logo", np.zeros(16), np.zeros(16), 64, 64, f))
+    loud = np.asarray(draw("logo", np.ones(16), np.ones(16), 64, 64, f))
+    assert quiet.max() < 60                                  # only the faint unlit dots
+    assert (loud.max(axis=2) > 200).sum() > 200              # every dot lit
