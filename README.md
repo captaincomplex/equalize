@@ -277,7 +277,7 @@ python3 image/make_logo.py                                # rebuild the logo fil
 A vaporwave sun setting over a neon grid, except the sun is made of equaliser
 bars. Each bar stops short of the circle, and its peak cap hangs where the
 circle's edge would be, so the caps trace the sun's outline. The wordmark is
-set in dot-matrix, the way the panel draws. The palette (night purple, a sun
+set in condensed capitals cut into equaliser bars, with one peak cap lit on the *I*. The palette (night purple, a sun
 running pale yellow to peach, pink and purple, and a cyan grid) is shared by
 the icon, the web panel and the *vapor* LED theme.
 These run the real analysis and drawing code on any computer with numpy and Pillow.
