@@ -4,8 +4,8 @@ styles.py -- the four ways Equalize can draw the music, one per logo.
     sunset  bars standing on a horizon, the sun's slits cut through them,
             a neon grid floor below (logo 1, the default)
     disc    the spectrum as a ring of rays around a small striped sun (logo 3)
-    meter   a hi-fi LED meter: stacked segments, a lit segment marking each
-            peak (logo 4)
+    meter   a hi-fi LED meter: stacked segments, unlit ones faintly glowing,
+            a lit segment marking each peak (logo 4)
     equals  bars rising from a centre line with their reflection below,
             like an "=" sign (logo 5)
     mirror  bars growing up and down from the middle of the panel at once
@@ -212,7 +212,7 @@ def draw_meter(levels, peaks, width, height, field, peak_colour, show_peaks=True
             elif show_peaks and s == pk and pk >= lit:
                 c = _peak_rgb(field, i, peak_colour)
             else:
-                continue                                         # unlit: nothing, until it's heard
+                c = col[s] * 0.10                                # unlit: a faint glow
             img[y0:y1, x0:x1] = np.asarray(c).astype(np.uint8)
     return Image.fromarray(img, "RGB")
 

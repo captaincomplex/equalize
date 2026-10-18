@@ -311,7 +311,7 @@ def test_logo_dots_are_circles_in_the_logos_proportions_and_silence_lights_nothi
     assert (loud.max(axis=2) > 200).sum() > 200              # every dot lit
 
 
-@pytest.mark.parametrize("style", ["logo", "logotrails", "ledring", "ring", "dots", "meter"])
+@pytest.mark.parametrize("style", ["logo", "logotrails", "ledring", "ring", "dots"])
 def test_silence_shows_nothing(style):
     # no faint unlit dots, segments or rings: nothing until the music is heard
     import styles

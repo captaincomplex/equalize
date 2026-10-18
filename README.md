@@ -101,9 +101,9 @@ three here match the logos (you choose the logo at the bottom of the control pan
 - **Ring**: rays round an empty circle, longer where it's louder.
 - **LED grid**: big round "LEDs" in columns.
 
-None of the LED styles (LED ring, Logo, Logo trails, Ring, LED grid, Meter)
-shows anything for a part of the music until it is heard: no faint unlit dots
-or rings, so a quiet room means a dark panel.
+LED ring, Logo, Logo trails, Ring and LED grid show nothing for a part of
+the music until it is heard: no faint unlit dots or rings, so a quiet room
+means a dark panel.
 
 - **Dance** (best in Rainbow): Dance Dance Revolution. Four lanes, ← bass,
   ↓ low-mid, ↑ high-mid, → treble, or eight with the diagonals (← ↖ ↙ ↓ ↑ ↘ ↗ →,
@@ -122,8 +122,8 @@ music players of the early 2000s:
 - **Sunset**: bars standing on a horizon, the sun's stripes cut through
   them, a neon grid floor below.
 - **Disc**: the spectrum as a ring of rays around a small striped sun.
-- **Meter**: a hi-fi LED meter, stacked segments with a lit segment marking
-  each peak.
+- **Meter**: a hi-fi LED meter, stacked segments with the unlit ones faintly
+  glowing and a lit segment marking each peak.
 - **Equals**: bars rising from a centre line with their reflection below.
 - **Mirror**: bars growing up and down from the middle of the panel at once.
 - **Wave**: one smooth line through the tops of the bars, softly filled below,
