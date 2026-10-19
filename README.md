@@ -105,6 +105,10 @@ three here match the logos (you choose the logo at the bottom of the control pan
 - **Ring**: rays round an empty circle, longer where it's louder.
 - **LED grid**: big round "LEDs" in columns.
 
+The ring styles (LED ring, Logo, Logo trails, Ring, Disc) go once round the
+circle: bass at the top, then clockwise through to treble, so the two sides
+never mirror each other and every song makes its own shape, as in the logo.
+
 LED ring, Logo, Logo trails, Ring and LED grid show nothing for a part of
 the music until it is heard: no faint unlit dots or rings, so a quiet room
 means a dark panel.

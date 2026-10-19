@@ -163,29 +163,25 @@ def draw_disc(levels, peaks, width, height, field, peak_colour, show_peaks=True)
     reach = max(2.0, min(width, height) / 2 - r0 - 0.5)
     # Rays need room: at most one per ~2.5 px of the ring's circumference, so
     # neighbouring bars are averaged together on a small ring.
-    per_side = max(6, min(len(levels), int(math.pi * r0 / 2.5)))
-    groups = np.array_split(np.arange(len(levels)), per_side)
-    levels = np.array([np.max(np.asarray(levels)[g]) for g in groups])
-    peaks = np.array([np.max(np.asarray(peaks)[g]) for g in groups])
-    field = np.stack([field[:, g[len(g) // 2]] for g in groups], axis=1)
-    n = per_side
-    # bass at the bottom, treble at the top, mirrored left and right
-    for side in (1, -1):
-        for i in range(n):
-            a = math.pi / 2 - side * math.pi * (i + 0.5) / n     # screen angle, y down
-            ca, sa = math.cos(a), math.sin(a)
-            length = float(levels[i]) * reach
-            # colour follows the ray's length, like a bar's top colour
-            top = field[int(float(levels[i]) * (len(field) - 1)), i] * (0.6 + 0.4 * float(levels[i]))
-            if length >= 0.5:
-                d.line([(cx + r0 * ca, cy + r0 * sa),
-                        (cx + (r0 + length) * ca, cy + (r0 + length) * sa)],
-                       fill=tuple(int(v) for v in top))
-            else:
-                d.point((cx + r0 * ca, cy + r0 * sa), fill=tuple(int(v * IDLE_FLOOR * 2) for v in field[0, i]))
-            if show_peaks and float(peaks[i]) * reach > length + 1:
-                pr = r0 + float(peaks[i]) * reach
-                d.point((cx + pr * ca, cy + pr * sa), fill=tuple(int(v) for v in _peak_rgb(field, i, peak_colour)))
+    n = 2 * max(6, min(len(levels), int(math.pi * r0 / 2.5)))
+    levels, peaks, idx = _round_once(levels, peaks, n)
+    field = field[:, idx]
+    # once round, bass at the top going clockwise to treble: no mirror image
+    for i in range(n):
+        a = -math.pi / 2 + 2 * math.pi * (i + 0.5) / n     # screen angle, y down
+        ca, sa = math.cos(a), math.sin(a)
+        length = float(levels[i]) * reach
+        # colour follows the ray's length, like a bar's top colour
+        top = field[int(float(levels[i]) * (len(field) - 1)), i] * (0.6 + 0.4 * float(levels[i]))
+        if length >= 0.5:
+            d.line([(cx + r0 * ca, cy + r0 * sa),
+                    (cx + (r0 + length) * ca, cy + (r0 + length) * sa)],
+                   fill=tuple(int(v) for v in top))
+        else:
+            d.point((cx + r0 * ca, cy + r0 * sa), fill=tuple(int(v * IDLE_FLOOR * 2) for v in field[0, i]))
+        if show_peaks and float(peaks[i]) * reach > length + 1:
+            pr = r0 + float(peaks[i]) * reach
+            d.point((cx + pr * ca, cy + pr * sa), fill=tuple(int(v) for v in _peak_rgb(field, i, peak_colour)))
     return img
 
 
@@ -614,21 +610,29 @@ def draw_plasma(levels, peaks, width, height, field, peak_colour, show_peaks=Tru
 
 
 # ---------------------------------------------------------------- logo styles
-def _around(levels, peaks, n):
-    """Bars shared out round a circle: n spokes, bass at the bottom, treble at
-    the top, mirrored left and right (as Disc does), loudest of each group."""
+def _round_once(levels, peaks, n):
+    """The music shared out once round a circle of n spokes: bass at the top,
+    going clockwise through to treble, every spoke its own part of the music
+    (so the two sides never mirror each other). With fewer bars than spokes,
+    a spoke between two bars takes a blend of them; with more, the loudest of
+    its group. Returns levels, peaks and the bar each spoke takes its colour
+    from."""
     lv, pk = np.asarray(levels, dtype=float), np.asarray(peaks, dtype=float)
-    half = max(1, min(n // 2, len(lv)))                           # never more spokes than bars
-    groups = np.array_split(np.arange(len(lv)), half)
-    l = np.array([lv[g].max() for g in groups])
-    p = np.array([pk[g].max() for g in groups])
-    idx = [g[len(g) // 2] for g in groups]
-    spokes = []
-    for side in (1, -1):
-        for i in range(half):
-            a = math.pi / 2 - side * math.pi * (i + 0.5) / half       # screen angle, y down
-            spokes.append((a, l[i], p[i], idx[i]))
-    return spokes
+    nb = len(lv)
+    if n <= nb:
+        groups = np.array_split(np.arange(nb), n)
+        return (np.array([lv[g].max() for g in groups]), np.array([pk[g].max() for g in groups]),
+                [int(g[len(g) // 2]) for g in groups])
+    x = (np.arange(n) + 0.5) * nb / n - 0.5
+    return np.interp(x, np.arange(nb), lv), np.interp(x, np.arange(nb), pk), \
+        [int(min(nb - 1, max(0, round(v)))) for v in x]
+
+
+def _around(levels, peaks, n):
+    """n spokes round a circle, from the top clockwise, each with its level,
+    peak and colour bar (see _round_once)."""
+    l, p, idx = _round_once(levels, peaks, n)
+    return [(-math.pi / 2 + 2 * math.pi * (s_ + 0.5) / n, l[s_], p[s_], idx[s_]) for s_ in range(n)]
 
 
 def _led(img, x, y, size, colour):
@@ -727,16 +731,13 @@ def _logo_layers(levels, width, height, field):
     music = np.zeros((height, width, 3), dtype=np.uint8)
     k = size / 512.0                                           # logo units to LEDs
     cx, cy = (width - 1) / 2, (height - 1) / 2
-    lv = np.asarray(levels, dtype=float)
-    nb = len(lv)
     rows = len(field) - 1
     stamps = [_disc(r) for r in _logo_dot_radii(size)]
+    spoke_lv, _, spoke_bar = _round_once(levels, levels, n)   # bass at the top, clockwise to treble
     for s_ in range(n):
         a = 2 * math.pi * s_ / n - math.pi / 2                 # from the top, clockwise, as the logo
-        # bass at the bottom, treble at the top, the same on both sides
-        from_bottom = abs(((a - math.pi / 2 + math.pi) % (2 * math.pi)) - math.pi) / math.pi
-        i = min(nb - 1, int(from_bottom * nb))
-        lit = rings * float(np.clip(lv[i], 0, 1))              # silent: nothing lit
+        i = spoke_bar[s_]
+        lit = rings * float(np.clip(spoke_lv[s_], 0, 1))       # silent: nothing lit
         col = np.asarray(field[int(rows * 0.85), min(field.shape[1] - 1, i)], dtype=float)
         for j in range(rings):
             on = float(np.clip(lit - j, 0, 1))

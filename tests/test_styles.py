@@ -72,7 +72,9 @@ def test_equals_reflection_sits_below_the_bars():
 
 
 def test_disc_is_centred():
-    px = frame("disc", 128, 64)
+    # the same loudness all round, so the rays reach equally far on each side
+    n = auto_bars(128)
+    px = frame("disc", 128, 64, np.full(n, 0.6), np.full(n, 0.6))
     lit_x = np.nonzero(px.any(axis=(0, 2)))[0]
     assert abs((lit_x.min() + lit_x.max()) / 2 - 63.5) <= 2
 
@@ -319,3 +321,17 @@ def test_silence_shows_nothing(style):
     f = colour_field("mono", 16, 64)
     quiet = np.asarray(draw(style, np.zeros(16), np.zeros(16), 64, 64, f))
     assert quiet.max() == 0
+
+
+
+@pytest.mark.parametrize("style", ["ledring", "logo", "logotrails", "ring", "disc"])
+def test_rings_go_once_round_not_mirrored(style):
+    # bass loud, treble quiet: the bass side (start, clockwise from the top)
+    # lights, the treble side doesn't, so left and right are different
+    import styles
+    styles._logo_trails.clear()
+    n = auto_bars(64)
+    lv = np.r_[np.full(n // 2, 0.9), np.full(n - n // 2, 0.0)]
+    px = frame(style, 64, 64, lv, lv).sum(axis=2).astype(float)
+    right, left = px[:, 32:].sum(), px[:, :32].sum()
+    assert right > 1.5 * left, (right, left)                 # bass on the right, after the top
